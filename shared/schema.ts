@@ -1,55 +1,50 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { ObjectId } from "mongodb";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  isAdmin: boolean("is_admin").default(false).notNull(),
+// Schema definitions for validation
+export const insertUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  isAdmin: z.boolean().default(false),
 });
 
-export const clients = pgTable("clients", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  clientId: text("client_id").notNull().unique(),
-  clientSecret: text("client_secret").notNull(),
-  redirectUris: text("redirect_uris").array().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+export const insertClientSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  redirectUris: z.array(z.string().url("Invalid redirect URI")),
+  userId: z.string(),
 });
 
-export const authCodes = pgTable("auth_codes", {
-  id: serial("id").primaryKey(),
-  code: text("code").notNull().unique(),
-  clientId: integer("client_id").references(() => clients.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  scope: text("scope").array(),
-  expiresAt: timestamp("expires_at").notNull(),
+export const insertAuthCodeSchema = z.object({
+  code: z.string(),
+  clientId: z.string(),
+  userId: z.string(),
+  scope: z.array(z.string()).optional(),
+  expiresAt: z.date(),
 });
 
-export const tokens = pgTable("tokens", {
-  id: serial("id").primaryKey(),
-  accessToken: text("access_token").notNull().unique(),
-  refreshToken: text("refresh_token").notNull().unique(),
-  clientId: integer("client_id").references(() => clients.id).notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  scope: text("scope").array(),
-  expiresAt: timestamp("expires_at").notNull(),
+export const insertTokenSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  clientId: z.string(),
+  userId: z.string(),
+  scope: z.array(z.string()).optional(),
+  expiresAt: z.date(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
-export const insertClientSchema = createInsertSchema(clients).pick({
-  name: true,
-  redirectUris: true,
-});
-
+// Types for the application
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-export type Client = typeof clients.$inferSelect;
-export type AuthCode = typeof authCodes.$inferSelect;
-export type Token = typeof tokens.$inferSelect;
+export type User = InsertUser & { _id: string };
+
+export type InsertClient = z.infer<typeof insertClientSchema>;
+export type Client = InsertClient & {
+  _id: string;
+  clientId: string;
+  clientSecret: string;
+  createdAt: Date;
+};
+
+export type InsertAuthCode = z.infer<typeof insertAuthCodeSchema>;
+export type AuthCode = InsertAuthCode & { _id: string };
+
+export type InsertToken = z.infer<typeof insertTokenSchema>;
+export type Token = InsertToken & { _id: string };
