@@ -96,8 +96,6 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Username already exists");
       }
 
-      return res.status(401).send("Please contact Admin for registration");
-
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
