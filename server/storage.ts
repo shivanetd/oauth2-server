@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, client } from "./db";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import crypto from "crypto";
@@ -8,6 +8,7 @@ import {
   AuthCode, InsertAuthCode,
   Token, InsertToken 
 } from "@shared/schema";
+import { ObjectId } from "mongodb";
 
 export interface IStorage {
   // User operations
@@ -38,13 +39,17 @@ export class MongoStorage implements IStorage {
 
   constructor() {
     this.sessionStore = MongoStore.create({
-      clientPromise: db.client.connect(),
-      collectionName: 'sessions'
+      clientPromise: client.connect(),
+      collectionName: 'sessions',
+      ttl: 24 * 60 * 60, // 1 day in seconds
+      crypto: {
+        secret: process.env.SESSION_SECRET ?? "dev-secret-key"
+      }
     });
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    const user = await db.collection('users').findOne({ _id: id });
+    const user = await db.collection('users').findOne({ _id: new ObjectId(id) });
     return user as User | undefined;
   }
 
@@ -55,7 +60,7 @@ export class MongoStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.collection('users').insertOne(insertUser);
-    return { ...insertUser, _id: result.insertedId.toString() } as User;
+    return { ...insertUser, _id: new ObjectId(result.insertedId.toString()) } as User;
   }
 
   async createClient(clientData: Omit<InsertClient, "clientId" | "clientSecret">): Promise<Client> {
@@ -66,11 +71,11 @@ export class MongoStorage implements IStorage {
       createdAt: new Date()
     };
     const result = await db.collection('clients').insertOne(client);
-    return { ...client, _id: result.insertedId.toString() } as Client;
+    return { ...client, _id: new ObjectId(result.insertedId.toString()) } as Client;
   }
 
   async getClientById(id: string): Promise<Client | undefined> {
-    const client = await db.collection('clients').findOne({ _id: id });
+    const client = await db.collection('clients').findOne({ _id: new ObjectId(id) });
     return client as Client | undefined;
   }
 
@@ -86,7 +91,7 @@ export class MongoStorage implements IStorage {
 
   async createAuthCode(codeData: InsertAuthCode): Promise<AuthCode> {
     const result = await db.collection('authCodes').insertOne(codeData);
-    return { ...codeData, _id: result.insertedId.toString() } as AuthCode;
+    return { ...codeData, _id: result.insertedId } as AuthCode;
   }
 
   async getAuthCodeByCode(code: string): Promise<AuthCode | undefined> {
@@ -100,7 +105,7 @@ export class MongoStorage implements IStorage {
 
   async createToken(tokenData: InsertToken): Promise<Token> {
     const result = await db.collection('tokens').insertOne(tokenData);
-    return { ...tokenData, _id: result.insertedId.toString() } as Token;
+    return { ...tokenData, _id: result.insertedId } as Token;
   }
 
   async getTokenByAccessToken(accessToken: string): Promise<Token | undefined> {

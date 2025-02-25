@@ -11,7 +11,7 @@ export const insertUserSchema = z.object({
 export const insertClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   redirectUris: z.array(z.string().url("Invalid redirect URI")),
-  userId: z.string(),
+  userId: z.string().optional(),
 });
 
 export const insertAuthCodeSchema = z.object({
@@ -33,18 +33,18 @@ export const insertTokenSchema = z.object({
 
 // Types for the application
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = InsertUser & { _id: string };
+export type User = InsertUser & { _id: ObjectId };
 
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = InsertClient & {
-  _id: string;
+  _id: ObjectId;
   clientId: string;
   clientSecret: string;
   createdAt: Date;
 };
 
 export type InsertAuthCode = z.infer<typeof insertAuthCodeSchema>;
-export type AuthCode = InsertAuthCode & { _id: string };
+export type AuthCode = InsertAuthCode & { _id: ObjectId };
 
 export type InsertToken = z.infer<typeof insertTokenSchema>;
-export type Token = InsertToken & { _id: string };
+export type Token = InsertToken & { _id: ObjectId };

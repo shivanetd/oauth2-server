@@ -25,10 +25,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const clientData = insertClientSchema.parse(req.body);
-      const client = await storage.createClient({
+      var vvs= {
         ...clientData,
-        userId: req.user!.id,
-      });
+        userId: req.user!._id.toString(),
+      };
+      const client = await storage.createClient(vvs);
 
       res.status(201).json(client);
     } catch (error) {
@@ -42,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).send("Authentication required");
     }
 
-    const clients = await storage.listClientsByUser(req.user!.id);
+    const clients = await storage.listClientsByUser(req.user!._id.toString());
     res.json(clients);
   });
 
