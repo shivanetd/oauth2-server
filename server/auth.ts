@@ -6,9 +6,9 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
-import MongoStore from 'connect-mongo';
-import CookieParser from 'cookie-parser';
-import BodyParser from 'body-parser';
+import MongoStore from "connect-mongo";
+import CookieParser from "cookie-parser";
+import BodyParser from "body-parser";
 
 declare global {
   namespace Express {
@@ -40,19 +40,19 @@ export function setupAuth(app: Express) {
       mongoUrl: process.env.MONGO_CONNECTION_STRING,
       // OR if you already have a mongoose connection:
       // clientPromise: new Promise(resolve => resolve(mongoose.connection.getClient())),
-      collectionName: 'sessions', // Optional, default is 'sessions'
-      dbName: 'oauth2-server', // Optional, default is 'session'
+      collectionName: "sessions", // Optional, default is 'sessions'
+      dbName: "oauth2-server", // Optional, default is 'session'
       ttl: 14 * 24 * 60 * 60, // Session TTL in seconds (14 days)
-      autoRemove: 'native', // Optional, default is 'native'
+      autoRemove: "native", // Optional, default is 'native'
       crypto: {
-        secret: process.env.SESSION_SECRET ?? "dev-secret-key" // Optional, to encrypt session data
+        secret: process.env.SESSION_SECRET ?? "dev-secret-key", // Optional, to encrypt session data
       },
-      touchAfter: 24 * 3600 // Optional, period in seconds between session updates
+      touchAfter: 24 * 3600, // Optional, period in seconds between session updates
     }),
     cookie: {
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days in milliseconds
-      secure: process.env.NODE_ENV === 'production'
-    }
+      secure: process.env.NODE_ENV === "production",
+    },
   };
 
   app.use(CookieParser());
@@ -95,6 +95,8 @@ export function setupAuth(app: Express) {
       if (existingUser) {
         return res.status(400).send("Username already exists");
       }
+
+      return res.status(401).send("Please contact Admin for registration");
 
       const user = await storage.createUser({
         ...req.body,
