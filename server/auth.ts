@@ -37,17 +37,15 @@ export function setupAuth(app: Express) {
     resave: true,
     saveUninitialized: true,
     store: MongoStore.create({
-      mongoUrl: process.env.MONGO_CONNECTION_STRING,
-      // OR if you already have a mongoose connection:
-      // clientPromise: new Promise(resolve => resolve(mongoose.connection.getClient())),
-      collectionName: "sessions", // Optional, default is 'sessions'
-      dbName: "oauth2-server", // Optional, default is 'session'
-      ttl: 14 * 24 * 60 * 60, // Session TTL in seconds (14 days)
-      autoRemove: "native", // Optional, default is 'native'
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: "sessions",
+      dbName: "oauth2-server",
+      ttl: 14 * 24 * 60 * 60,
+      autoRemove: "native",
       crypto: {
-        secret: process.env.SESSION_SECRET ?? "dev-secret-key", // Optional, to encrypt session data
+        secret: process.env.SESSION_SECRET ?? "dev-secret-key",
       },
-      touchAfter: 24 * 3600, // Optional, period in seconds between session updates
+      touchAfter: 24 * 3600,
     }),
     cookie: {
       maxAge: 14 * 24 * 60 * 60 * 1000, // 14 days in milliseconds
