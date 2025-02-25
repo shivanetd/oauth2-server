@@ -78,6 +78,8 @@ export function setupOAuth(app: Express) {
   app.get("/oauth/authorize", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
+        // Store OAuth request parameters in session
+        req.session.returnTo = req.originalUrl;
         return res.redirect(`/auth?return_to=${encodeURIComponent(req.url)}`);
       }
 

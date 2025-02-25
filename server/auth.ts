@@ -101,7 +101,16 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+
+        // Check if there's a pending OAuth request
+        const returnTo = req.session.returnTo;
+        delete req.session.returnTo;
+
+        if (returnTo) {
+          res.status(201).json({ user, redirect: returnTo });
+        } else {
+          res.status(201).json(user);
+        }
       });
     } catch (error) {
       next(error);
@@ -109,7 +118,15 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+    // Check if there's a pending OAuth request
+    const returnTo = req.session.returnTo;
+    delete req.session.returnTo;
+
+    if (returnTo) {
+      res.status(200).json({ user: req.user, redirect: returnTo });
+    } else {
+      res.status(200).json(req.user);
+    }
   });
 
   app.post("/api/logout", (req, res, next) => {
