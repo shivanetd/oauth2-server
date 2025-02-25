@@ -119,13 +119,14 @@ export function setupOAuth(app: Express) {
             return res.status(400).send("Missing refresh token");
           }
 
-          const decoded = await jwtService.verifyToken(params.refresh_token);
-          if (decoded.type !== "refresh_token" || decoded.client_id !== client._id.toString()) {
+          const token = await storage.getTokenByRefreshToken(params.refresh_token);
+          if (!token || token.expiresAt < new Date() || 
+              token.clientId !== client._id.toString()) {
             return res.status(400).send("Invalid refresh token");
           }
 
-          userId = decoded.sub;
-          scope = decoded.scope;
+          userId = token.userId;
+          scope = token.scope;
           break;
         }
 
@@ -142,7 +143,7 @@ export function setupOAuth(app: Express) {
           return res.status(400).send("Invalid grant type");
       }
 
-      // Generate JWT tokens
+      // Generate access token as JWT
       const accessTokenPayload = {
         sub: userId,
         client_id: client._id.toString(),
@@ -150,19 +151,12 @@ export function setupOAuth(app: Express) {
         type: "access_token"
       };
 
-      const refreshTokenPayload = {
-        sub: userId,
-        client_id: client._id.toString(),
-        scope,
-        type: "refresh_token"
-      };
+      const accessToken = await jwtService.generateAccessToken(accessTokenPayload);
 
-      const [accessToken, refreshToken] = await Promise.all([
-        jwtService.generateAccessToken(accessTokenPayload),
-        jwtService.generateRefreshToken(refreshTokenPayload)
-      ]);
+      // Generate refresh token as a secure random string
+      const refreshToken = crypto.randomBytes(32).toString("hex");
 
-      // Store token in database for reference
+      // Store tokens in database for reference
       await storage.createToken({
         accessToken,
         refreshToken,
