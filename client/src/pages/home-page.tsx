@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,6 +11,8 @@ import { insertClientSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Client, InsertClient } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+
+const AVAILABLE_SCOPES = ['read', 'write', 'admin']; // Add this line to define available scopes
 
 export default function HomePage() {
   const { user, logoutMutation } = useAuth();
@@ -80,6 +82,7 @@ function RegisterClientDialog() {
     defaultValues: {
       name: "",
       redirectUris: [],
+      allowedScopes: ['read'],
       userId: "", // This will be set by the server
     },
   });
@@ -138,6 +141,36 @@ function RegisterClientDialog() {
                       value={field.value?.join(", ") || ""} 
                       onChange={(e) => field.onChange(e.target.value.split(",").map(uri => uri.trim()))}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="allowedScopes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Allowed Scopes</FormLabel>
+                  <FormControl>
+                    <div className="flex gap-2 flex-wrap">
+                      {AVAILABLE_SCOPES.map((scope) => (
+                        <Button
+                          key={scope}
+                          type="button"
+                          variant={field.value?.includes(scope) ? "default" : "outline"}
+                          onClick={() => {
+                            const newScopes = field.value?.includes(scope)
+                              ? field.value.filter(s => s !== scope)
+                              : [...(field.value || []), scope];
+                            field.onChange(newScopes);
+                          }}
+                          className="text-sm"
+                        >
+                          {scope}
+                        </Button>
+                      ))}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

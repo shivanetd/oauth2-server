@@ -12,6 +12,7 @@ export const insertClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   redirectUris: z.array(z.string().url("Invalid redirect URI")),
   userId: z.string().optional(),
+  allowedScopes: z.array(z.string()).default(['read']), // Default to basic read scope
 });
 
 export const insertAuthCodeSchema = z.object({
@@ -59,3 +60,7 @@ export type JwtKeys = InsertJwtKeys & { _id: ObjectId };
 
 export type InsertToken = z.infer<typeof insertTokenSchema>;
 export type Token = InsertToken & { _id: ObjectId };
+
+// Available scopes
+export const AVAILABLE_SCOPES = ['read', 'write', 'admin'] as const;
+export type Scope = typeof AVAILABLE_SCOPES[number];
