@@ -10,42 +10,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import type { InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-
-function getOAuthState() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('oauth_state');
-}
+import { SiGithub, SiGoogle } from "react-icons/si";
+import { Separator } from "@/components/ui/separator";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
-  const oauthState = getOAuthState();
 
-  const { data: oauthData } = useQuery({
-    queryKey: [`/api/oauth/check-state/${oauthState}`],
-    enabled: !!oauthState,
-  });
-
-  useEffect(() => {
-    const checkOAuthCompletion = async () => {
-      if (user && oauthState) {
-        const response = await fetch(`/api/oauth/complete/${oauthState}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.redirect) {
-            window.location.href = data.redirect;
-            return;
-          }
-        }
-      } else if (user) {
-        setLocation("/");
-      }
-    };
-
-    checkOAuthCompletion();
-  }, [user, oauthState, setLocation]);
+  if (user) {
+    setLocation("/");
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -55,6 +30,28 @@ export default function AuthPage() {
             <CardTitle>OAuth2 Authorization Server</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="space-y-4 mb-4">
+              <Button variant="outline" className="w-full" disabled>
+                <SiGithub className="mr-2 h-4 w-4" />
+                Continue with GitHub
+              </Button>
+              <Button variant="outline" className="w-full" disabled>
+                <SiGoogle className="mr-2 h-4 w-4" />
+                Continue with Google
+              </Button>
+            </div>
+
+            <div className="relative mb-4">
+              <div className="absolute inset-0 flex items-center">
+                <Separator />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
             <Tabs defaultValue="login">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Login</TabsTrigger>
@@ -87,10 +84,8 @@ export default function AuthPage() {
             Secure OAuth2 Authorization
           </h1>
           <p className="text-lg text-muted-foreground">
-            {oauthData ? 
-              "Please sign in to continue with the authorization process." :
-              "A complete OAuth2 server implementation supporting the authorization code flow."
-            }
+            A complete OAuth2 server implementation supporting multiple authentication methods,
+            perfect for securing your applications with industry-standard authentication.
           </p>
         </div>
       </div>
