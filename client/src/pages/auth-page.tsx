@@ -10,13 +10,79 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import type { InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [oAuthState, setOAuthState] = useState<string | null>(null);
 
-  if (user) {
-    setLocation("/");
+  // Extract oauth_state from URL if present
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const state = url.searchParams.get('oauth_state');
+    if (state) {
+      setOAuthState(state);
+    }
+  }, []);
+
+  // Handle redirect after successful authentication with OAuth state
+  useEffect(() => {
+    if (user && oAuthState) {
+      fetch(`/api/oauth/complete/${oAuthState}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.redirect) {
+            window.location.href = data.redirect;
+          }
+        })
+        .catch(error => {
+          console.error("Error completing OAuth flow:", error);
+        });
+    } else if (user) {
+      // Check if we have a redirect in the login/register mutation result
+      if (loginMutation.data && 'redirect' in loginMutation.data) {
+        if (loginMutation.data.redirect.startsWith('/api/oauth/complete/')) {
+          // Handle OAuth completion
+          fetch(loginMutation.data.redirect)
+            .then(response => response.json())
+            .then(data => {
+              if (data.redirect) {
+                window.location.href = data.redirect;
+              }
+            })
+            .catch(error => {
+              console.error("Error completing OAuth flow:", error);
+            });
+        } else {
+          // Handle other redirects
+          window.location.href = loginMutation.data.redirect;
+        }
+      } else if (registerMutation.data && 'redirect' in registerMutation.data) {
+        if (registerMutation.data.redirect.startsWith('/api/oauth/complete/')) {
+          // Handle OAuth completion
+          fetch(registerMutation.data.redirect)
+            .then(response => response.json())
+            .then(data => {
+              if (data.redirect) {
+                window.location.href = data.redirect;
+              }
+            })
+            .catch(error => {
+              console.error("Error completing OAuth flow:", error);
+            });
+        } else {
+          // Handle other redirects
+          window.location.href = registerMutation.data.redirect;
+        }
+      } else {
+        // Default redirect to home page
+        setLocation("/");
+      }
+    }
+  }, [user, oAuthState, setLocation, loginMutation.data, registerMutation.data]);
+
+  if (user && !oAuthState) {
     return null;
   }
 

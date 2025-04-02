@@ -3,6 +3,14 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { jwtService } from "./jwt";
 import crypto from "crypto";
+import { SessionData } from "express-session";
+
+// Extend the Session type to include returnTo
+declare module "express-session" {
+  interface SessionData {
+    returnTo?: string;
+  }
+}
 
 // Store pending OAuth requests with a temporary key
 const pendingAuthorizations = new Map<string, {
@@ -108,6 +116,9 @@ export function setupOAuth(app: Express) {
           state: req.query.state as string,
         });
 
+        // Save the return URL in the session - important for redirects to work properly
+        req.session.returnTo = `/api/oauth/complete/${tempState}`;
+        
         // Redirect to login with the temporary state
         return res.redirect(`/auth?oauth_state=${tempState}`);
       }
