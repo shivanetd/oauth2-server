@@ -1,15 +1,16 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import type { InsertUser } from "@shared/schema";
-import { Loader2 } from "lucide-react";
+import { Loader2, Fingerprint, KeyRound } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function AuthPage() {
@@ -144,6 +145,9 @@ function AuthForm({
   onSubmit: (data: InsertUser) => void;
   isLoading: boolean;
 }) {
+  const { passkeyLoginMutation, registerPasskeyMutation, user } = useAuth();
+  const [usernameForPasskey, setUsernameForPasskey] = useState<string>("");
+  
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
     defaultValues: {
@@ -151,43 +155,117 @@ function AuthForm({
       password: "",
     },
   });
+  
+  // Update username for passkey login when username field changes
+  const watchUsername = form.watch("username");
+  useEffect(() => {
+    if (watchUsername) {
+      setUsernameForPasskey(watchUsername);
+    }
+  }, [watchUsername]);
+  
+  // Handle passkey login
+  const handlePasskeyLogin = () => {
+    if (!usernameForPasskey) {
+      form.setError("username", { 
+        type: "manual", 
+        message: "Username is required for passkey login" 
+      });
+      return;
+    }
+    
+    passkeyLoginMutation.mutate({ username: usernameForPasskey });
+  };
+  
+  // Handle passkey registration
+  const handleRegisterPasskey = () => {
+    if (!user) {
+      return; // Can only register passkey when logged in
+    }
+    
+    registerPasskeyMutation.mutate();
+  };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="username"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Username</FormLabel>
-              <FormControl>
-                <Input {...field} autoComplete="username" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    <div className="space-y-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Username</FormLabel>
+                <FormControl>
+                  <Input {...field} autoComplete="username" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" {...field} autoComplete={mode === "login" ? "current-password" : "new-password"} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input type="password" {...field} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {mode === "login" ? "Sign In" : "Create Account"}
-        </Button>
-      </form>
-    </Form>
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <KeyRound className="mr-2 h-4 w-4" />
+            {mode === "login" ? "Sign In" : "Create Account"}
+          </Button>
+        </form>
+      </Form>
+      
+      {/* Passkey section */}
+      {mode === "login" && (
+        <>
+          <div className="flex items-center">
+            <Separator className="flex-1" />
+            <span className="mx-2 text-xs text-muted-foreground">OR</span>
+            <Separator className="flex-1" />
+          </div>
+          
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={handlePasskeyLogin}
+            disabled={passkeyLoginMutation.isPending}
+          >
+            {passkeyLoginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Fingerprint className="mr-2 h-4 w-4" />
+            Sign in with Passkey
+          </Button>
+        </>
+      )}
+      
+      {/* Passkey registration for existing users */}
+      {user && (
+        <div className="mt-6 pt-4 border-t">
+          <CardDescription className="mb-4">
+            Add a passkey for more secure login next time
+          </CardDescription>
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={handleRegisterPasskey}
+            disabled={registerPasskeyMutation.isPending}
+          >
+            {registerPasskeyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Fingerprint className="mr-2 h-4 w-4" />
+            Register Passkey
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -6,7 +6,8 @@ import {
   User, InsertUser, 
   Client, InsertClient, 
   AuthCode, InsertAuthCode,
-  Token, InsertToken 
+  Token, InsertToken,
+  WebAuthnCredential, InsertWebAuthnCredential
 } from "@shared/schema";
 import { ObjectId } from "mongodb";
 
@@ -15,6 +16,13 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserChallenge(userId: string, challenge: string): Promise<void>;
+
+  // WebAuthn operations
+  createWebAuthnCredential(credential: InsertWebAuthnCredential): Promise<WebAuthnCredential>;
+  getWebAuthnCredentialsByUserId(userId: string): Promise<WebAuthnCredential[]>;
+  getWebAuthnCredentialByCredentialId(credentialId: string): Promise<WebAuthnCredential | undefined>;
+  updateWebAuthnCredentialCounter(credentialId: string, newCounter: number): Promise<void>;
 
   // Client operations  
   createClient(client: Omit<InsertClient, "clientId" | "clientSecret">): Promise<Client>;
@@ -169,6 +177,36 @@ export class MongoStorage implements IStorage {
       ...client,
       _id: new ObjectId(client._id.toString())
     })) as unknown as Client[];
+  }
+
+  // WebAuthn operations implementation
+  async updateUserChallenge(userId: string, challenge: string): Promise<void> {
+    await db.collection('users').updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { challenge } }
+    );
+  }
+
+  async createWebAuthnCredential(credential: InsertWebAuthnCredential): Promise<WebAuthnCredential> {
+    const result = await db.collection('webauthn_credentials').insertOne(credential);
+    return { ...credential, _id: result.insertedId } as WebAuthnCredential;
+  }
+
+  async getWebAuthnCredentialsByUserId(userId: string): Promise<WebAuthnCredential[]> {
+    const credentials = await db.collection('webauthn_credentials').find({ userId }).toArray();
+    return credentials as WebAuthnCredential[];
+  }
+
+  async getWebAuthnCredentialByCredentialId(credentialId: string): Promise<WebAuthnCredential | undefined> {
+    const credential = await db.collection('webauthn_credentials').findOne({ credentialID: credentialId });
+    return credential as WebAuthnCredential | undefined;
+  }
+
+  async updateWebAuthnCredentialCounter(credentialId: string, newCounter: number): Promise<void> {
+    await db.collection('webauthn_credentials').updateOne(
+      { credentialID: credentialId },
+      { $set: { counter: newCounter } }
+    );
   }
 }
 
