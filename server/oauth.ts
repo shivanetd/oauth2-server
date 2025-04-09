@@ -48,6 +48,18 @@ function validateScopes(requestedScopes: string[] | undefined, allowedScopes: st
   return requestedScopes.filter(scope => allowedScopes.includes(scope));
 }
 
+// Schema for token introspection requests
+const introspectionSchema = z.object({
+  token: z.string(),
+  token_type_hint: z.enum(["access_token", "refresh_token"]).optional(),
+});
+
+// Schema for token revocation requests
+const revocationSchema = z.object({
+  token: z.string(),
+  token_type_hint: z.enum(["access_token", "refresh_token"]).optional(),
+});
+
 export function setupOAuth(app: Express) {
   // Add OAuth2 Metadata endpoint
   app.get("/.well-known/oauth-authorization-server", (_req, res) => {
@@ -315,6 +327,174 @@ export function setupOAuth(app: Express) {
       });
     } catch (error) {
       res.status(400).send(error instanceof Error ? error.message : "Invalid request");
+    }
+  });
+
+  // Token introspection endpoint (RFC 7662)
+  app.post("/oauth/introspect", async (req, res) => {
+    try {
+      // Validate request parameters
+      const params = introspectionSchema.parse(req.body);
+      
+      // Extract client authentication from Basic Auth header
+      const authHeader = req.headers.authorization;
+      let clientId: string | undefined;
+      let clientSecret: string | undefined;
+      
+      if (authHeader && authHeader.startsWith('Basic ')) {
+        const base64Credentials = authHeader.slice('Basic '.length);
+        const credentials = Buffer.from(base64Credentials, 'base64').toString('utf8');
+        const [id, secret] = credentials.split(':');
+        clientId = id;
+        clientSecret = secret;
+      } else {
+        // Allow client credentials in request body as well (less secure, but allowed by spec)
+        clientId = req.body.client_id;
+        clientSecret = req.body.client_secret;
+      }
+      
+      // Verify client authentication
+      if (!clientId || !clientSecret) {
+        return res.status(401).json({
+          active: false,
+          error: "invalid_client",
+          error_description: "Client authentication required"
+        });
+      }
+      
+      const client = await storage.getClientByClientId(clientId);
+      if (!client || client.clientSecret !== clientSecret) {
+        return res.status(401).json({
+          active: false,
+          error: "invalid_client",
+          error_description: "Invalid client credentials"
+        });
+      }
+      
+      // Verify the token
+      let isAccessToken = params.token_type_hint !== "refresh_token";
+      let tokenInfo: any = null;
+      
+      if (isAccessToken) {
+        try {
+          // Attempt to validate as JWT access token
+          tokenInfo = await jwtService.verifyToken(params.token);
+          
+          // Make sure we include standard claims described in RFC 7662
+          const response = {
+            active: true,
+            client_id: tokenInfo.client_id,
+            username: tokenInfo.sub,
+            scope: Array.isArray(tokenInfo.scope) ? tokenInfo.scope.join(' ') : tokenInfo.scope,
+            sub: tokenInfo.sub,
+            aud: tokenInfo.client_id,
+            iss: process.env.BASE_URL || 'http://localhost:5000',
+            exp: tokenInfo.exp,
+            iat: tokenInfo.iat,
+            token_type: "access_token"
+          };
+          
+          return res.json(response);
+        } catch (error) {
+          // Not a valid JWT token, might be a refresh token instead
+          isAccessToken = false;
+        }
+      }
+      
+      if (!isAccessToken) {
+        // Look up refresh token in database
+        const token = await storage.getTokenByRefreshToken(params.token);
+        
+        if (token && token.expiresAt > new Date()) {
+          // Convert token expiration to epoch time
+          const exp = Math.floor(token.expiresAt.getTime() / 1000);
+          
+          const response = {
+            active: true,
+            client_id: token.clientId,
+            username: token.userId,
+            scope: Array.isArray(token.scope) ? token.scope.join(' ') : token.scope,
+            sub: token.userId,
+            aud: token.clientId,
+            iss: process.env.BASE_URL || 'http://localhost:5000',
+            exp,
+            token_type: "refresh_token"
+          };
+          
+          return res.json(response);
+        }
+      }
+      
+      // Token is not active
+      return res.json({ active: false });
+    } catch (error) {
+      res.status(400).json({
+        active: false,
+        error: "invalid_request",
+        error_description: error instanceof Error ? error.message : "Invalid request"
+      });
+    }
+  });
+
+  // Token revocation endpoint (RFC 7009)
+  app.post("/oauth/revoke", async (req, res) => {
+    try {
+      // Validate request parameters
+      const params = revocationSchema.parse(req.body);
+      
+      // Extract client authentication from Basic Auth header
+      const authHeader = req.headers.authorization;
+      let clientId: string | undefined;
+      let clientSecret: string | undefined;
+      
+      if (authHeader && authHeader.startsWith('Basic ')) {
+        const base64Credentials = authHeader.slice('Basic '.length);
+        const credentials = Buffer.from(base64Credentials, 'base64').toString('utf8');
+        const [id, secret] = credentials.split(':');
+        clientId = id;
+        clientSecret = secret;
+      } else {
+        // Allow client credentials in request body as well (less secure, but allowed by spec)
+        clientId = req.body.client_id;
+        clientSecret = req.body.client_secret;
+      }
+      
+      // Verify client authentication
+      if (!clientId || !clientSecret) {
+        return res.status(401).json({
+          error: "invalid_client",
+          error_description: "Client authentication required"
+        });
+      }
+      
+      const client = await storage.getClientByClientId(clientId);
+      if (!client || client.clientSecret !== clientSecret) {
+        return res.status(401).json({
+          error: "invalid_client",
+          error_description: "Invalid client credentials"
+        });
+      }
+      
+      // Just like token_type_hint from introspection endpoint
+      const isRefreshToken = params.token_type_hint === "refresh_token";
+      
+      if (isRefreshToken) {
+        // Try to revoke refresh token
+        await storage.revokeRefreshToken(params.token);
+      } else {
+        // Try to revoke access token - we can't actually revoke JWTs, but we can mark them as revoked
+        // in the database so they'll be rejected during validation
+        await storage.revokeAccessToken(params.token);
+      }
+      
+      // RFC 7009 requires always returning 200 OK even if token was not found
+      return res.status(200).end();
+    } catch (error) {
+      // Return error according to OAuth2 spec
+      res.status(400).json({
+        error: "invalid_request",
+        error_description: error instanceof Error ? error.message : "Invalid request"
+      });
     }
   });
 }

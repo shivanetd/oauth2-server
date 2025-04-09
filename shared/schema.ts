@@ -38,6 +38,8 @@ export const insertTokenSchema = z.object({
   userId: z.string(),
   scope: z.array(z.string()).optional(),
   expiresAt: z.date(),
+  revoked: z.boolean().optional(),
+  revokedAt: z.date().optional(),
 });
 
 // Types for the application

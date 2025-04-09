@@ -30,6 +30,8 @@ export interface IStorage {
   createToken(token: InsertToken): Promise<Token>;
   getTokenByAccessToken(token: string): Promise<Token | undefined>;
   getTokenByRefreshToken(token: string): Promise<Token | undefined>;
+  revokeAccessToken(token: string): Promise<void>;
+  revokeRefreshToken(token: string): Promise<void>;
 
   sessionStore: session.Store;
 
@@ -122,20 +124,51 @@ export class MongoStorage implements IStorage {
     return token as Token | undefined;
   }
 
+  async revokeAccessToken(accessToken: string): Promise<void> {
+    // We can't actually revoke a JWT since it's stateless, but we can add it to a 
+    // revocation list in the database to check during validation
+    await db.collection('revokedTokens').insertOne({
+      token: accessToken,
+      type: 'access_token',
+      revokedAt: new Date()
+    });
+    
+    // Also update the token record to mark it as revoked
+    await db.collection('tokens').updateOne(
+      { accessToken },
+      { $set: { revoked: true, revokedAt: new Date() } }
+    );
+  }
+
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    // Add refresh token to revocation list
+    await db.collection('revokedTokens').insertOne({
+      token: refreshToken,
+      type: 'refresh_token',
+      revokedAt: new Date()
+    });
+    
+    // Also update the token record to mark it as revoked
+    await db.collection('tokens').updateOne(
+      { refreshToken },
+      { $set: { revoked: true, revokedAt: new Date() } }
+    );
+  }
+
   async listUsers(): Promise<User[]> {
     const users = await db.collection('users').find().toArray();
     return users.map(user => ({
       ...user,
-      _id: user._id.toString()
-    })) as User[];
+      _id: new ObjectId(user._id.toString())
+    })) as unknown as User[];
   }
 
   async listAllClients(): Promise<Client[]> {
     const clients = await db.collection('clients').find().toArray();
     return clients.map(client => ({
       ...client,
-      _id: client._id.toString()
-    })) as Client[];
+      _id: new ObjectId(client._id.toString())
+    })) as unknown as Client[];
   }
 }
 
