@@ -1,0 +1,35 @@
+version: '3.8'
+
+# This file is automatically merged with docker-compose.yml when you run docker-compose commands
+# It contains development-specific settings that shouldn't be used in production
+
+services:
+  oauth2-server:
+    build:
+      # For development, use a simplified Dockerfile that skips the production optimizations
+      target: builder
+    # Mount the code for hot reloading in development
+    volumes:
+      - .:/app
+      - /app/node_modules
+    # Set development environment
+    environment:
+      - NODE_ENV=development
+      - DEBUG=express:*
+    # Override command to run in development mode
+    command: npm run dev
+    # More verbose logging for development
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  mongodb:
+    # Expose MongoDB port for development tools
+    ports:
+      - "27017:27017"
+    # No authentication in development for easier debugging
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=
+      - MONGO_INITDB_ROOT_PASSWORD=
