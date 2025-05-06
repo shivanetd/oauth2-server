@@ -58,4 +58,11 @@ Run the test suite to ensure everything is working correctly:
 npm test
 ```
 
-
+## Folder Structure
+```
+/workspaces/oauth2-server
+├── src/                # Source code
+├── tests/              # Unit and integration tests
+├── config/             # Configuration files
+├── public/             # Static files
+└── README.md           # Project documentation
