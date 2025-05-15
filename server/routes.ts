@@ -84,6 +84,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get a specific user
+  app.get("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).send("User not found");
+      }
+
+      // Remove sensitive data before sending
+      const { password, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error) {
+      res.status(500).send("Error fetching user");
+    }
+  });
+
+  // Update a user
+  app.put("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const userData = req.body;
+      
+      // Don't allow changing _id through the API
+      delete userData._id;
+      
+      const updatedUser = await storage.updateUser(userId, userData);
+      
+      if (!updatedUser) {
+        return res.status(404).send("User not found or could not be updated");
+      }
+
+      // Remove sensitive data before sending
+      const { password, ...sanitizedUser } = updatedUser;
+      res.json(sanitizedUser);
+    } catch (error) {
+      res.status(500).send("Error updating user");
+    }
+  });
+
+  // Delete a user
+  app.delete("/api/admin/users/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      
+      // Prevent deleting your own account
+      if (req.user?._id.toString() === userId) {
+        return res.status(400).send("You cannot delete your own account");
+      }
+      
+      const success = await storage.deleteUser(userId);
+      
+      if (!success) {
+        return res.status(404).send("User not found or could not be deleted");
+      }
+
+      res.status(200).send({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+      res.status(500).send("Error deleting user");
+    }
+  });
+
   app.get("/api/admin/clients", requireAdmin, async (req, res) => {
     try {
       const clients = await storage.listAllClients();

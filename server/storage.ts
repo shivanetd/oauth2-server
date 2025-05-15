@@ -16,6 +16,8 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(userId: string, userData: Partial<Omit<User, '_id'>>): Promise<User | undefined>;
+  deleteUser(userId: string): Promise<boolean>;
   updateUserChallenge(userId: string, challenge: string): Promise<void>;
 
   // WebAuthn operations
@@ -177,6 +179,72 @@ export class MongoStorage implements IStorage {
       ...client,
       _id: new ObjectId(client._id.toString())
     })) as unknown as Client[];
+  }
+
+  async updateUser(userId: string, userData: Partial<Omit<User, '_id'>>): Promise<User | undefined> {
+    try {
+      const id = new ObjectId(userId);
+      // Create update object - never allow updating _id
+      const updateData: Record<string, any> = { ...userData };
+      delete updateData._id;
+
+      // If password is being updated and it's not already hashed, hash it
+      if (updateData.password && !updateData.password.includes('.')) {
+        // Password doesn't have the pattern of "hash.salt", so we need to hash it
+        const { hashPassword } = await import('./auth');
+        updateData.password = await hashPassword(updateData.password);
+      }
+
+      // Set update time
+      updateData.updatedAt = new Date();
+
+      const result = await db.collection('users').findOneAndUpdate(
+        { _id: id },
+        { $set: updateData },
+        { returnDocument: 'after' }
+      );
+
+      if (!result) return undefined;
+      
+      return {
+        ...result,
+        _id: id
+      } as User;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return undefined;
+    }
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    try {
+      const id = new ObjectId(userId);
+      
+      // First delete all related data
+      // 1. Delete all user's WebAuthn credentials
+      await db.collection('webauthnCredentials').deleteMany({ userId: userId.toString() });
+      
+      // 2. Delete all user's clients and related tokens/auth codes
+      const userClients = await db.collection('clients').find({ userId: userId.toString() }).toArray();
+      for (const client of userClients) {
+        // Delete all auth codes related to this client
+        await db.collection('authCodes').deleteMany({ clientId: client.clientId });
+        
+        // Delete all tokens related to this client
+        await db.collection('tokens').deleteMany({ clientId: client.clientId });
+      }
+      
+      // Delete all clients
+      await db.collection('clients').deleteMany({ userId: userId.toString() });
+      
+      // Finally delete the user
+      const result = await db.collection('users').deleteOne({ _id: id });
+      
+      return result.deletedCount === 1;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
   }
 
   // WebAuthn operations implementation
