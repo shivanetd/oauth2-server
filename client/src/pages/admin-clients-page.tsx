@@ -50,16 +50,31 @@ import {
 import { Loader2, PlusCircle, Pencil, Trash2, Info, Link2, Copy } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
+// Extended Client type to handle string-based form inputs
+type ClientWithFormFields = Omit<Client, 'redirectUris' | 'allowedScopes'> & {
+  description?: string;
+  redirectUris: string[] | string;
+  allowedScopes: string[] | string;
+};
+
+// New client form data type
+type NewClientFormData = {
+  name: string;
+  description: string;
+  redirectUris: string;
+  allowedScopes: string;
+};
+
 export default function AdminClientsPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientWithFormFields | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [newClient, setNewClient] = useState({
+  const [newClient, setNewClient] = useState<NewClientFormData>({
     name: "",
     description: "",
     redirectUris: "",
@@ -178,7 +193,18 @@ export default function AdminClientsPage() {
 
   // Handler for opening the edit dialog
   const handleEditClient = (client: Client) => {
-    setSelectedClient(client);
+    // Convert arrays to comma-separated strings for the form
+    const clientWithFormFields: ClientWithFormFields = {
+      ...client,
+      redirectUris: Array.isArray(client.redirectUris) 
+        ? client.redirectUris.join(", ")
+        : client.redirectUris,
+      allowedScopes: Array.isArray(client.allowedScopes)
+        ? client.allowedScopes.join(", ")
+        : client.allowedScopes
+    };
+    
+    setSelectedClient(clientWithFormFields);
     setEditDialogOpen(true);
   };
 
@@ -208,8 +234,8 @@ export default function AdminClientsPage() {
     createClientMutation.mutate({
       name: newClient.name,
       description: newClient.description,
-      redirectUris: newClient.redirectUris.split(',').map(uri => uri.trim()),
-      allowedScopes: newClient.allowedScopes.split(',').map(scope => scope.trim())
+      redirectUris: newClient.redirectUris.split(',').map((uri: string) => uri.trim()),
+      allowedScopes: newClient.allowedScopes.split(',').map((scope: string) => scope.trim())
     });
   };
 
@@ -217,19 +243,20 @@ export default function AdminClientsPage() {
   const handleUpdateClient = () => {
     if (!selectedClient) return;
     
-    const redirectUris = typeof selectedClient.redirectUris === 'string' 
-      ? selectedClient.redirectUris.split(',').map(uri => uri.trim())
+    // Convert string input back to arrays
+    const redirectUrisArray = typeof selectedClient.redirectUris === 'string' 
+      ? selectedClient.redirectUris.split(',').map((uri: string) => uri.trim())
       : selectedClient.redirectUris;
     
-    const allowedScopes = typeof selectedClient.allowedScopes === 'string'
-      ? selectedClient.allowedScopes.split(',').map(scope => scope.trim())
+    const allowedScopesArray = typeof selectedClient.allowedScopes === 'string'
+      ? selectedClient.allowedScopes.split(',').map((scope: string) => scope.trim())
       : selectedClient.allowedScopes;
     
     updateClientMutation.mutate({
       name: selectedClient.name,
       description: selectedClient.description || "",
-      redirectUris,
-      allowedScopes
+      redirectUris: redirectUrisArray,
+      allowedScopes: allowedScopesArray
     });
   };
 
@@ -307,7 +334,7 @@ export default function AdminClientsPage() {
                   <TableCell className="font-mono text-xs break-all max-w-[200px]">{client.clientId}</TableCell>
                   <TableCell>{client.userId}</TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {client.redirectUris.join(", ")}
+                    {Array.isArray(client.redirectUris) ? client.redirectUris.join(", ") : client.redirectUris}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -460,9 +487,9 @@ export default function AdminClientsPage() {
               <Textarea
                 id="edit-redirectUris"
                 value={
-                  Array.isArray(selectedClient?.redirectUris) 
-                    ? selectedClient?.redirectUris.join(", ") 
-                    : selectedClient?.redirectUris || ""
+                  typeof selectedClient?.redirectUris === 'string'
+                    ? selectedClient.redirectUris
+                    : selectedClient?.redirectUris?.join(", ") || ""
                 }
                 onChange={(e) => 
                   setSelectedClient(prev => prev ? {...prev, redirectUris: e.target.value} : null)
@@ -476,9 +503,9 @@ export default function AdminClientsPage() {
               <Input
                 id="edit-allowedScopes"
                 value={
-                  Array.isArray(selectedClient?.allowedScopes) 
-                    ? selectedClient?.allowedScopes.join(", ") 
-                    : selectedClient?.allowedScopes || "read, write"
+                  typeof selectedClient?.allowedScopes === 'string'
+                    ? selectedClient.allowedScopes
+                    : selectedClient?.allowedScopes?.join(", ") || "read"
                 }
                 onChange={(e) => 
                   setSelectedClient(prev => prev ? {...prev, allowedScopes: e.target.value} : null)
@@ -604,12 +631,16 @@ export default function AdminClientsPage() {
                   <Link2 className="h-4 w-4 mt-0.5 text-primary" />
                   <span>
                     <strong>Redirect URIs:</strong>{" "}
-                    {selectedClient?.redirectUris.join(", ")}
+                    {Array.isArray(selectedClient?.redirectUris) 
+                      ? selectedClient?.redirectUris.join(", ")
+                      : selectedClient?.redirectUris}
                   </span>
                 </p>
                 <p className="mt-2">
                   <strong>Allowed Scopes:</strong>{" "}
-                  {selectedClient?.allowedScopes.join(", ")}
+                  {Array.isArray(selectedClient?.allowedScopes)
+                    ? selectedClient?.allowedScopes.join(", ")
+                    : selectedClient?.allowedScopes}
                 </p>
                 {selectedClient?.description && (
                   <p className="mt-2 text-muted-foreground">
