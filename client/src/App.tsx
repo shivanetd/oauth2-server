@@ -8,6 +8,7 @@ import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
 import AdminPage from "@/pages/admin-page";
 import AdminUsersPage from "@/pages/admin-users-page";
+import AdminClientsPage from "@/pages/admin-clients-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +22,9 @@ function Router() {
       </Route>
       <Route path="/admin/users">
         <ProtectedRoute path="/admin/users" component={AdminUsersPage} />
+      </Route>
+      <Route path="/admin/clients">
+        <ProtectedRoute path="/admin/clients" component={AdminClientsPage} />
       </Route>
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
