@@ -3,10 +3,35 @@ import { ObjectId } from "mongodb";
 
 // Schema definitions for validation
 export const insertUserSchema = z.object({
+  // Required basic fields
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required").optional(),
+  
+  // User profile information
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().email("Invalid email address").optional(),
+  phoneNumber: z.string().optional(),
+  
+  // Account metadata
   isAdmin: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  lastLogin: z.date().optional(),
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().optional(),
+  
+  // Profile preferences
+  preferredLanguage: z.string().default("en"),
+  theme: z.enum(["light", "dark", "system"]).default("system"),
+  timezone: z.string().default("UTC"),
+  
+  // Security related
+  mfaEnabled: z.boolean().default(false),
   challenge: z.string().optional(), // For WebAuthn registration
+  
+  // User organization/team related
+  organizationId: z.string().optional(),
+  role: z.string().optional(), // Role within the organization
 });
 
 export const insertWebAuthnCredentialSchema = z.object({
