@@ -225,17 +225,45 @@ export default function AdminUsersPage() {
       return;
     }
     
-    createUserMutation.mutate(newUser);
+    // Create proper user object with typed theme value
+    const userToCreate = {
+      ...newUser,
+      theme: newUser.theme as "light" | "dark" | "system"
+    };
+    
+    createUserMutation.mutate(userToCreate);
   };
 
   // Handler for updating a user
   const handleUpdateUser = () => {
     if (!selectedUser) return;
     
+    // Prepare the update data with all the user attributes
     const updateData: Partial<SanitizedUser> & { password?: string } = {
       username: selectedUser.username,
-      isAdmin: selectedUser.isAdmin
+      firstName: selectedUser.firstName,
+      lastName: selectedUser.lastName,
+      email: selectedUser.email,
+      phoneNumber: selectedUser.phoneNumber,
+      isAdmin: selectedUser.isAdmin,
+      isActive: selectedUser.isActive,
+      mfaEnabled: selectedUser.mfaEnabled,
+      role: selectedUser.role,
+      preferredLanguage: selectedUser.preferredLanguage,
+      theme: selectedUser.theme as "light" | "dark" | "system",
+      timezone: selectedUser.timezone,
+      organizationId: selectedUser.organizationId
     };
+    
+    // Validate email if present
+    if (updateData.email && !updateData.email.includes('@')) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Only include password if it was entered
     if (newPassword.trim()) {
@@ -584,7 +612,7 @@ export default function AdminUsersPage() {
 
       {/* Edit User Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
@@ -592,38 +620,216 @@ export default function AdminUsersPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={selectedUser?.username || ""}
-                onChange={(e) => 
-                  setSelectedUser(prev => prev ? {...prev, username: e.target.value} : null)
-                }
-              />
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Account Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username*</Label>
+                  <Input
+                    id="username"
+                    value={selectedUser?.username || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, username: e.target.value} : null)
+                    }
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">New Password (leave blank to keep current)</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                  />
+                </div>
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password (leave blank to keep current)</Label>
-              <Input
-                id="password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password"
-              />
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Personal Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    value={selectedUser?.firstName || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, firstName: e.target.value} : null)
+                    }
+                    placeholder="First name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={selectedUser?.lastName || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, lastName: e.target.value} : null)
+                    }
+                    placeholder="Last name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={selectedUser?.email || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, email: e.target.value} : null)
+                    }
+                    placeholder="example@domain.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    value={selectedUser?.phoneNumber || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, phoneNumber: e.target.value} : null)
+                    }
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isAdmin"
-                checked={selectedUser?.isAdmin || false}
-                onCheckedChange={(checked) => 
-                  setSelectedUser(prev => prev ? {...prev, isAdmin: !!checked} : null)
-                }
-              />
-              <Label htmlFor="isAdmin">Administrator</Label>
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Roles and Permissions</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Input
+                    id="role"
+                    value={selectedUser?.role || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, role: e.target.value} : null)
+                    }
+                    placeholder="User role (e.g., Manager, Developer)"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="organization">Organization ID</Label>
+                  <Input
+                    id="organization"
+                    value={selectedUser?.organizationId || ""}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, organizationId: e.target.value} : null)
+                    }
+                    placeholder="Organization identifier"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isAdmin"
+                    checked={selectedUser?.isAdmin || false}
+                    onCheckedChange={(checked) => 
+                      setSelectedUser(prev => prev ? {...prev, isAdmin: !!checked} : null)
+                    }
+                  />
+                  <Label htmlFor="isAdmin">Administrator</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isActive"
+                    checked={selectedUser?.isActive !== false}
+                    onCheckedChange={(checked) => 
+                      setSelectedUser(prev => prev ? {...prev, isActive: !!checked} : null)
+                    }
+                  />
+                  <Label htmlFor="isActive">Active Account</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="mfa"
+                    checked={selectedUser?.mfaEnabled || false}
+                    onCheckedChange={(checked) => 
+                      setSelectedUser(prev => prev ? {...prev, mfaEnabled: !!checked} : null)
+                    }
+                  />
+                  <Label htmlFor="mfa">Enable MFA (Multi-Factor Authentication)</Label>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Preferences</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="language">Preferred Language</Label>
+                  <select
+                    id="language"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={selectedUser?.preferredLanguage || "en"}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, preferredLanguage: e.target.value} : null)
+                    }
+                  >
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="theme">Theme</Label>
+                  <select
+                    id="theme"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={selectedUser?.theme || "system"}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, theme: e.target.value as "light" | "dark" | "system"} : null)
+                    }
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="system">System</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <select
+                    id="timezone"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={selectedUser?.timezone || "UTC"}
+                    onChange={(e) => 
+                      setSelectedUser(prev => prev ? {...prev, timezone: e.target.value} : null)
+                    }
+                  >
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                    <option value="Europe/London">London (GMT)</option>
+                    <option value="Europe/Paris">Central European Time (CET)</option>
+                    <option value="Asia/Tokyo">Japan (JST)</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
           
