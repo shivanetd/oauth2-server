@@ -67,6 +67,9 @@ export default function HomePage() {
               <Button asChild size="sm" variant="outline">
                 <Link to="/admin/clients">Manage Clients</Link>
               </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/admin/trends">User Trends</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>

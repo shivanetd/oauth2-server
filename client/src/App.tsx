@@ -10,6 +10,7 @@ import AdminPage from "@/pages/admin-page";
 import AdminUsersPage from "@/pages/admin-users-page";
 import AdminClientsPage from "@/pages/admin-clients-page";
 import ScopeDemoPage from "@/pages/scope-demo-page";
+import UserTrendsPage from "@/pages/user-trends-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,6 +30,9 @@ function Router() {
       </Route>
       <Route path="/admin/scope-demo">
         <ProtectedRoute path="/admin/scope-demo" component={ScopeDemoPage} />
+      </Route>
+      <Route path="/admin/trends">
+        <ProtectedRoute path="/admin/trends" component={UserTrendsPage} />
       </Route>
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
