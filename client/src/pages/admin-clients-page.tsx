@@ -423,11 +423,22 @@ export default function AdminClientsPage() {
                 id="new-allowedScopes"
                 value={newClient.allowedScopes}
                 onChange={(e) => setNewClient({...newClient, allowedScopes: e.target.value})}
-                placeholder="read, write, admin"
+                placeholder="profile, email, phone, preferences"
               />
-              <p className="text-xs text-muted-foreground">
-                Available scopes: read, write, admin
-              </p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p><strong>Available scopes:</strong></p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs">
+                  <p><code>read</code> - Basic account access</p>
+                  <p><code>write</code> - Update account data</p>
+                  <p><code>profile</code> - Name and username</p>
+                  <p><code>email</code> - Email address</p>
+                  <p><code>phone</code> - Phone number</p>
+                  <p><code>preferences</code> - Theme, language, timezone</p>
+                  <p><code>organization</code> - Organization and role</p>
+                  <p><code>security</code> - MFA status, login history</p>
+                  <p><code>admin</code> - Full administrative access</p>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -511,9 +522,20 @@ export default function AdminClientsPage() {
                   setSelectedClient(prev => prev ? {...prev, allowedScopes: e.target.value} : null)
                 }
               />
-              <p className="text-xs text-muted-foreground">
-                Available scopes: read, write, admin
-              </p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p><strong>Available scopes:</strong></p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-xs">
+                  <p><code>read</code> - Basic account access</p>
+                  <p><code>write</code> - Update account data</p>
+                  <p><code>profile</code> - Name and username</p>
+                  <p><code>email</code> - Email address</p>
+                  <p><code>phone</code> - Phone number</p>
+                  <p><code>preferences</code> - Theme, language, timezone</p>
+                  <p><code>organization</code> - Organization and role</p>
+                  <p><code>security</code> - MFA status, login history</p>
+                  <p><code>admin</code> - Full administrative access</p>
+                </div>
+              </div>
             </div>
           </div>
           

@@ -72,6 +72,29 @@ export default function AdminPage() {
             </Button>
           </CardFooter>
         </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              OAuth Scope Demo
+            </CardTitle>
+            <CardDescription>
+              Interactive demonstration of scope-based attribute access control
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              See how different OAuth scopes control access to user profile attributes. 
+              Test the scope mapping functionality and understand what data clients can access.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button asChild>
+              <Link to="/admin/scope-demo">View Demo</Link>
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
 
       <Card>

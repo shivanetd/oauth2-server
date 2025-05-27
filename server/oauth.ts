@@ -498,4 +498,157 @@ export function setupOAuth(app: Express) {
       });
     }
   });
+
+  // OAuth 2.0 UserInfo endpoint (RFC 7662 compliant)
+  app.get("/oauth/userinfo", async (req, res) => {
+    try {
+      // Extract bearer token from Authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          error: "invalid_token",
+          error_description: "Bearer token required"
+        });
+      }
+
+      const accessToken = authHeader.slice('Bearer '.length);
+      
+      try {
+        // Verify the JWT access token
+        const tokenPayload = await jwtService.verifyToken(accessToken);
+        
+        // Get the user from the database
+        const user = await storage.getUser(tokenPayload.sub);
+        if (!user) {
+          return res.status(401).json({
+            error: "invalid_token",
+            error_description: "User not found"
+          });
+        }
+
+        // Parse the scopes from the token
+        const scopes = Array.isArray(tokenPayload.scope) 
+          ? tokenPayload.scope 
+          : (tokenPayload.scope || "").split(' ').filter(Boolean);
+
+        // Filter user data based on scopes
+        const filteredUserData = filterUserByScopes(user, scopes);
+
+        // Transform to standard OpenID Connect UserInfo format
+        const userInfo: any = {
+          sub: user._id.toString()
+        };
+
+        // Map our user attributes to standard claims based on allowed scopes
+        const allowedAttributes = getAllowedAttributes(scopes);
+        
+        if (allowedAttributes.includes('username')) {
+          userInfo.preferred_username = user.username;
+        }
+        
+        if (allowedAttributes.includes('firstName') || allowedAttributes.includes('lastName')) {
+          if (user.firstName) userInfo.given_name = user.firstName;
+          if (user.lastName) userInfo.family_name = user.lastName;
+          if (user.firstName && user.lastName) {
+            userInfo.name = `${user.firstName} ${user.lastName}`;
+          }
+        }
+        
+        if (allowedAttributes.includes('email') && user.email) {
+          userInfo.email = user.email;
+          userInfo.email_verified = true; // Assume verified for now
+        }
+        
+        if (allowedAttributes.includes('phoneNumber') && user.phoneNumber) {
+          userInfo.phone_number = user.phoneNumber;
+          userInfo.phone_number_verified = false; // Default to unverified
+        }
+
+        // Add custom claims for extended profile data
+        if (allowedAttributes.includes('preferredLanguage') && user.preferredLanguage) {
+          userInfo.locale = user.preferredLanguage;
+        }
+
+        if (allowedAttributes.includes('timezone') && user.timezone) {
+          userInfo.zoneinfo = user.timezone;
+        }
+
+        // Include creation time if allowed
+        if (allowedAttributes.includes('createdAt') && user.createdAt) {
+          userInfo.updated_at = Math.floor(new Date(user.createdAt).getTime() / 1000);
+        }
+
+        // Add custom namespace claims for non-standard attributes
+        if (allowedAttributes.includes('organizationId') && user.organizationId) {
+          userInfo['https://oauth.example.com/organization_id'] = user.organizationId;
+        }
+
+        if (allowedAttributes.includes('role') && user.role) {
+          userInfo['https://oauth.example.com/role'] = user.role;
+        }
+
+        if (allowedAttributes.includes('mfaEnabled')) {
+          userInfo['https://oauth.example.com/mfa_enabled'] = user.mfaEnabled || false;
+        }
+
+        if (allowedAttributes.includes('isActive')) {
+          userInfo['https://oauth.example.com/active'] = user.isActive !== false;
+        }
+
+        if (allowedAttributes.includes('lastLogin') && user.lastLogin) {
+          userInfo['https://oauth.example.com/last_login'] = Math.floor(new Date(user.lastLogin).getTime() / 1000);
+        }
+
+        if (allowedAttributes.includes('theme') && user.theme) {
+          userInfo['https://oauth.example.com/theme'] = user.theme;
+        }
+
+        return res.json(userInfo);
+
+      } catch (jwtError) {
+        return res.status(401).json({
+          error: "invalid_token",
+          error_description: "Invalid or expired token"
+        });
+      }
+
+    } catch (error) {
+      console.error('UserInfo endpoint error:', error);
+      return res.status(500).json({
+        error: "server_error",
+        error_description: "Internal server error"
+      });
+    }
+  });
+
+  // Add endpoint to get available scopes and their descriptions
+  app.get("/oauth/scopes", (req, res) => {
+    const scopeDescriptions = {
+      'read': 'Basic read access to your account',
+      'write': 'Permission to update your account information',
+      'admin': 'Administrative access (full permissions)',
+      'profile': 'Access to your basic profile information (name, username)',
+      'email': 'Access to your email address',
+      'phone': 'Access to your phone number',
+      'preferences': 'Access to your user preferences (language, theme, timezone)',
+      'organization': 'Access to your organization and role information',
+      'security': 'Access to security-related information (MFA status, login history)'
+    };
+
+    const scopeMapping = Object.entries(scopeDescriptions).map(([scope, description]) => ({
+      scope,
+      description,
+      attributes: scope === 'admin' ? ['All user attributes'] : getAllowedAttributes([scope])
+    }));
+
+    res.json({
+      available_scopes: scopeMapping,
+      scope_to_attributes: Object.fromEntries(
+        Object.entries(scopeDescriptions).map(([scope]) => [
+          scope, 
+          scope === 'admin' ? ['*'] : getAllowedAttributes([scope])
+        ])
+      )
+    });
+  });
 }
