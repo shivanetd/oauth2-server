@@ -88,11 +88,14 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      <div className="flex-1 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-4">
-          <CardHeader>
-            <CardTitle>OAuth2 Authorization Server</CardTitle>
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl sm:text-2xl">OAuth2 Authorization Server</CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Sign in to manage your applications and settings
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login">
