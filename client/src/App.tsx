@@ -35,6 +35,9 @@ function Router() {
       <Route path="/admin/trends">
         <ProtectedRoute path="/admin/trends" component={UserTrendsPage} />
       </Route>
+      <Route path="/admin/enterprise">
+        <ProtectedRoute path="/admin/enterprise" component={EnterpriseDashboard} />
+      </Route>
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
