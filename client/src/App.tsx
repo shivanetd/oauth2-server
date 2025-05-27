@@ -11,6 +11,7 @@ import AdminUsersPage from "@/pages/admin-users-page";
 import AdminClientsPage from "@/pages/admin-clients-page";
 import ScopeDemoPage from "@/pages/scope-demo-page";
 import UserTrendsPage from "@/pages/user-trends-page";
+import EnterpriseDashboard from "@/pages/enterprise-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
