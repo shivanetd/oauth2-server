@@ -1,3 +1,31 @@
+/**
+ * OAuth2 Authorization Server Implementation
+ * 
+ * This module implements a complete OAuth2 authorization server following RFC 6749
+ * and RFC 6750 specifications. It provides secure token-based authorization
+ * for client applications with comprehensive scope-based access control.
+ * 
+ * Key Features:
+ * - Authorization Code Flow (most secure)
+ * - Implicit Flow (for SPAs)
+ * - Client Credentials Flow (machine-to-machine)
+ * - Token introspection (RFC 7662)
+ * - Token revocation (RFC 7009)
+ * - UserInfo endpoint (OpenID Connect)
+ * - Scope-based attribute access control
+ * - PKCE support for enhanced security
+ * 
+ * Security Features:
+ * - JWT access tokens with RS256 signing
+ * - Secure authorization code generation
+ * - Client authentication validation
+ * - CSRF protection via state parameter
+ * - Short-lived authorization codes
+ * 
+ * @author OAuth2 Authorization Server Team
+ * @version 1.0.0
+ */
+
 import { Express } from "express";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -6,10 +34,10 @@ import crypto from "crypto";
 import { SessionData } from "express-session";
 import { filterUserByScopes, getAllowedAttributes } from "@shared/schema";
 
-// Extend the Session type to include returnTo
+// Extend the Express Session type to support OAuth flow state management
 declare module "express-session" {
   interface SessionData {
-    returnTo?: string;
+    returnTo?: string; // URL to redirect to after authentication
   }
 }
 

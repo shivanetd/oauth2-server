@@ -1,128 +1,227 @@
 import { z } from "zod";
 import { ObjectId } from "mongodb";
 
-// Schema definitions for validation
+/**
+ * Core Schema Definitions for OAuth2 Authorization Server
+ * 
+ * This file contains all the data validation schemas using Zod for type safety
+ * and runtime validation. It defines the structure for users, OAuth clients,
+ * tokens, and other core entities in the system.
+ * 
+ * Features:
+ * - User profile management with extended attributes
+ * - OAuth2 client registration and management
+ * - WebAuthn credential storage for passwordless authentication
+ * - JWT key rotation and token management
+ * - Scope-based attribute access control
+ */
+
+/**
+ * User Schema Definition
+ * 
+ * Defines the complete user profile structure with comprehensive attributes
+ * for enterprise-grade user management including personal information,
+ * security settings, preferences, and organizational data.
+ */
 export const insertUserSchema = z.object({
-  // Required basic fields
+  // === Core Authentication Fields ===
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required").optional(),
   
-  // User profile information
+  // === Personal Information ===
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   email: z.string().email("Invalid email address").optional(),
   phoneNumber: z.string().optional(),
   
-  // Account metadata
-  isAdmin: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  lastLogin: z.date().optional(),
+  // === Account Management ===
+  isAdmin: z.boolean().default(false), // Administrative privileges
+  isActive: z.boolean().default(true), // Account status (enabled/disabled)
+  lastLogin: z.date().optional(), // Track user activity
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().optional(),
   
-  // Profile preferences
-  preferredLanguage: z.string().default("en"),
-  theme: z.enum(["light", "dark", "system"] as const).default("system"),
-  timezone: z.string().default("UTC"),
+  // === User Preferences ===
+  preferredLanguage: z.string().default("en"), // Localization support
+  theme: z.enum(["light", "dark", "system"] as const).default("system"), // UI theme preference
+  timezone: z.string().default("UTC"), // User's timezone for date/time display
   
-  // Security related
-  mfaEnabled: z.boolean().default(false),
-  challenge: z.string().optional(), // For WebAuthn registration
+  // === Security Configuration ===
+  mfaEnabled: z.boolean().default(false), // Multi-factor authentication status
+  challenge: z.string().optional(), // WebAuthn registration challenge storage
   
-  // User organization/team related
-  organizationId: z.string().optional(),
-  role: z.string().optional(), // Role within the organization
+  // === Organizational Data ===
+  organizationId: z.string().optional(), // Link to organization/company
+  role: z.string().optional(), // User's role within the organization (e.g., "Manager", "Developer")
 });
 
+/**
+ * WebAuthn Credential Schema
+ * 
+ * Stores WebAuthn (FIDO2) credentials for passwordless authentication.
+ * Each credential represents a registered authenticator device (like a security key,
+ * fingerprint reader, or platform authenticator) associated with a user account.
+ */
 export const insertWebAuthnCredentialSchema = z.object({
-  userId: z.string(),
-  credentialID: z.string(),
-  credentialPublicKey: z.string(),
-  counter: z.number(),
-  credentialDeviceType: z.string(),
-  credentialBackedUp: z.boolean(),
-  transports: z.array(z.string()).optional(),
+  userId: z.string(), // Reference to the user who owns this credential
+  credentialID: z.string(), // Unique identifier for this credential
+  credentialPublicKey: z.string(), // Public key for signature verification
+  counter: z.number(), // Signature counter to prevent replay attacks
+  credentialDeviceType: z.string(), // Type of authenticator device
+  credentialBackedUp: z.boolean(), // Whether the credential is backed up
+  transports: z.array(z.string()).optional(), // Available transport methods (usb, ble, nfc, etc.)
   createdAt: z.date().default(() => new Date()),
 });
 
+/**
+ * OAuth2 Client Application Schema
+ * 
+ * Defines the structure for OAuth2 client applications that can request
+ * authorization to access user data. Each client has specific permissions
+ * (scopes) and trusted redirect URIs for security.
+ */
 export const insertClientSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
-  redirectUris: z.array(z.string().url("Invalid redirect URI")),
-  userId: z.string().optional(),
-  allowedScopes: z.array(z.string()).default(['read']), // Default to basic read scope
+  name: z.string().min(1, "Name is required"), // Human-readable client name
+  description: z.string().optional(), // Optional description of the client application
+  redirectUris: z.array(z.string().url("Invalid redirect URI")), // Allowed callback URLs after authorization
+  userId: z.string().optional(), // Optional owner/creator of this client
+  allowedScopes: z.array(z.string()).default(['read']), // Scopes this client is permitted to request
 });
 
+/**
+ * OAuth2 Authorization Code Schema
+ * 
+ * Represents temporary authorization codes issued during the OAuth2 authorization
+ * code flow. These codes are exchanged for access tokens and have short lifespans
+ * for security purposes.
+ */
 export const insertAuthCodeSchema = z.object({
-  code: z.string(),
-  clientId: z.string(),
-  userId: z.string(),
-  scope: z.array(z.string()).optional(),
-  expiresAt: z.date(),
+  code: z.string(), // The authorization code value
+  clientId: z.string(), // Client that requested this authorization
+  userId: z.string(), // User who granted authorization
+  scope: z.array(z.string()).optional(), // Granted scopes for this authorization
+  expiresAt: z.date(), // When this code expires (typically 10 minutes)
 });
 
+/**
+ * JWT Key Pair Schema
+ * 
+ * Stores RSA key pairs used for signing and verifying JWT access tokens.
+ * Supports key rotation for enhanced security - multiple keys can exist
+ * with only one being active for signing new tokens.
+ */
 export const insertJwtKeysSchema = z.object({
-  privateKey: z.string(),
-  publicKey: z.string(),
-  algorithm: z.string(),
-  createdAt: z.date(),
-  isActive: z.boolean(),
+  privateKey: z.string(), // RSA private key for signing tokens
+  publicKey: z.string(), // RSA public key for verifying tokens
+  algorithm: z.string(), // Signing algorithm (e.g., "RS256")
+  createdAt: z.date(), // When this key pair was generated
+  isActive: z.boolean(), // Whether this key is currently used for signing
 });
 
+/**
+ * OAuth2 Token Schema
+ * 
+ * Represents issued access and refresh token pairs. Access tokens grant
+ * API access, while refresh tokens allow obtaining new access tokens
+ * without re-authentication.
+ */
 export const insertTokenSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  clientId: z.string(),
-  userId: z.string(),
-  scope: z.array(z.string()).optional(),
-  expiresAt: z.date(),
-  revoked: z.boolean().optional(),
-  revokedAt: z.date().optional(),
+  accessToken: z.string(), // The access token (JWT format)
+  refreshToken: z.string(), // The refresh token (opaque string)
+  clientId: z.string(), // Client that owns this token
+  userId: z.string(), // User this token represents
+  scope: z.array(z.string()).optional(), // Scopes granted to this token
+  expiresAt: z.date(), // When the access token expires
+  revoked: z.boolean().optional(), // Whether this token has been revoked
+  revokedAt: z.date().optional(), // When this token was revoked
 });
 
-// Types for the application
+// ===================================================================
+// TYPE DEFINITIONS
+// ===================================================================
+
+/**
+ * TypeScript type definitions derived from Zod schemas
+ * These provide compile-time type safety throughout the application
+ */
+
+/** User types for database operations */
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = InsertUser & { _id: ObjectId };
 
+/** OAuth2 client types */
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = InsertClient & {
   _id: ObjectId;
-  clientId: string;
-  clientSecret: string;
-  createdAt: Date;
+  clientId: string; // Auto-generated unique identifier
+  clientSecret: string; // Auto-generated secret for authentication
+  createdAt: Date; // When the client was registered
 };
 
+/** Authorization code types */
 export type InsertAuthCode = z.infer<typeof insertAuthCodeSchema>;
 export type AuthCode = InsertAuthCode & { _id: ObjectId };
 
+/** JWT key management types */
 export type InsertJwtKeys = z.infer<typeof insertJwtKeysSchema>;
 export type JwtKeys = InsertJwtKeys & { _id: ObjectId };
 
+/** Token management types */
 export type InsertToken = z.infer<typeof insertTokenSchema>;
 export type Token = InsertToken & { _id: ObjectId };
 
+/** WebAuthn credential types */
 export type InsertWebAuthnCredential = z.infer<typeof insertWebAuthnCredentialSchema>;
 export type WebAuthnCredential = InsertWebAuthnCredential & { _id: ObjectId };
 
-// Available scopes with profile data access
+// ===================================================================
+// OAUTH2 SCOPE SYSTEM
+// ===================================================================
+
+/**
+ * OAuth2 Scopes with Granular Profile Data Access Control
+ * 
+ * This system implements fine-grained permission control over user profile
+ * attributes. Each scope grants access to specific user data fields, enabling
+ * clients to request only the minimum necessary permissions.
+ * 
+ * Design principles:
+ * - Principle of least privilege: clients only get what they need
+ * - Granular control: separate scopes for different data categories
+ * - Standards compliance: follows OpenID Connect patterns
+ * - User privacy: clear data access boundaries
+ */
 export const AVAILABLE_SCOPES = [
-  'read',           // Basic read access
-  'write',          // Write access to user's own data
-  'admin',          // Administrative access
-  'profile',        // Access to basic profile info (username, name)
-  'email',          // Access to email address
-  'phone',          // Access to phone number
-  'preferences',    // Access to user preferences (theme, language, timezone)
-  'organization',   // Access to organization and role information
-  'security'        // Access to security-related information (MFA status, last login)
+  'read',           // Basic account access - minimal data exposure
+  'write',          // Write permissions for user's own data
+  'admin',          // Full administrative access (all attributes)
+  'profile',        // Basic profile info (name, username, creation date)
+  'email',          // Email address access
+  'phone',          // Phone number access
+  'preferences',    // User preferences (theme, language, timezone)
+  'organization',   // Organization and role information
+  'security'        // Security-related data (MFA status, login history)
 ] as const;
+
+/** Type definition for OAuth2 scopes */
 export type Scope = typeof AVAILABLE_SCOPES[number];
 
-// Scope to profile attribute mapping
+/**
+ * Scope-to-Attribute Mapping Configuration
+ * 
+ * This mapping defines exactly which user profile attributes each OAuth2 scope
+ * provides access to. It serves as the authorization matrix for the UserInfo
+ * endpoint and other profile data access points.
+ * 
+ * Special handling:
+ * - 'admin' scope uses '*' wildcard for all attributes
+ * - 'write' scope grants modification rights but no additional read access
+ * - Each scope is additive - clients can request multiple scopes
+ */
 export const SCOPE_TO_ATTRIBUTES: Record<Scope, string[]> = {
-  'read': ['username'], // Basic read only provides username
-  'write': [], // Write scope doesn't expose additional attributes, just allows modifications
-  'admin': ['*'], // Admin scope provides access to all attributes
+  'read': ['username'], 
+  'write': [], // Grants modification rights only, no additional data access
+  'admin': ['*'], // Wildcard grants access to all user attributes
   'profile': ['username', 'firstName', 'lastName', 'createdAt'],
   'email': ['email'],
   'phone': ['phoneNumber'],
@@ -131,15 +230,37 @@ export const SCOPE_TO_ATTRIBUTES: Record<Scope, string[]> = {
   'security': ['mfaEnabled', 'lastLogin', 'isActive']
 };
 
-// Helper function to get allowed attributes based on scopes
+/**
+ * Scope Resolution Utilities
+ * 
+ * These helper functions implement the core logic for translating OAuth2 scopes
+ * into specific user attribute access permissions. They are used throughout
+ * the authorization server to enforce data access controls.
+ */
+
+/**
+ * Get Allowed Attributes from OAuth2 Scopes
+ * 
+ * Resolves a list of OAuth2 scopes into the specific user attributes that
+ * those scopes grant access to. Handles scope combination and admin wildcard.
+ * 
+ * @param scopes - Array of OAuth2 scope strings
+ * @returns Array of user attribute names that are accessible
+ * 
+ * @example
+ * getAllowedAttributes(['profile', 'email']) 
+ * // Returns: ['username', 'firstName', 'lastName', 'createdAt', 'email']
+ */
 export function getAllowedAttributes(scopes: string[]): string[] {
   const allowedAttributes = new Set<string>();
   
   for (const scope of scopes) {
     if (scope in SCOPE_TO_ATTRIBUTES) {
       const attributes = SCOPE_TO_ATTRIBUTES[scope as Scope];
+      
+      // Handle admin scope with wildcard access
       if (attributes.includes('*')) {
-        // Admin scope - return all user attributes
+        // Return all available user attributes for admin scope
         return [
           'username', 'firstName', 'lastName', 'email', 'phoneNumber',
           'isAdmin', 'isActive', 'lastLogin', 'createdAt', 'updatedAt',
@@ -147,6 +268,8 @@ export function getAllowedAttributes(scopes: string[]): string[] {
           'organizationId', 'role'
         ];
       }
+      
+      // Add all attributes for this scope to the set
       attributes.forEach(attr => allowedAttributes.add(attr));
     }
   }
@@ -154,11 +277,26 @@ export function getAllowedAttributes(scopes: string[]): string[] {
   return Array.from(allowedAttributes);
 }
 
-// Helper function to filter user data based on allowed scopes
+/**
+ * Filter User Data by OAuth2 Scopes
+ * 
+ * Creates a filtered version of user data containing only the attributes
+ * that the provided OAuth2 scopes grant access to. This is the primary
+ * data filtering mechanism for the UserInfo endpoint.
+ * 
+ * @param user - Complete user object from database
+ * @param scopes - Array of granted OAuth2 scopes
+ * @returns Filtered user object with only accessible attributes
+ * 
+ * @example
+ * const filteredUser = filterUserByScopes(user, ['profile', 'email']);
+ * // Returns user object with only profile and email fields
+ */
 export function filterUserByScopes(user: User, scopes: string[]): Partial<User> {
   const allowedAttributes = getAllowedAttributes(scopes);
-  const filteredUser: Partial<User> = { _id: user._id }; // Always include ID
+  const filteredUser: Partial<User> = { _id: user._id }; // Always include ID for identification
   
+  // Copy only the attributes that the scopes allow access to
   for (const attr of allowedAttributes) {
     if (attr in user) {
       (filteredUser as any)[attr] = (user as any)[attr];
