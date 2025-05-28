@@ -51,3 +51,11 @@ Before setting up the project, ensure you have the following installed:
     npm run dev
     ```
 6. **Access the server: The server will be running at http://localhost:3000.**
+
+## Testing
+Run the test suite to ensure everything is working correctly:
+```bash
+npm test
+```
+
+
