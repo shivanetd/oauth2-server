@@ -10,15 +10,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema } from "@shared/schema";
 import type { InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
 
-  if (user) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    if (loginMutation.data?.redirect || registerMutation.data?.redirect) {
+      window.location.href = loginMutation.data?.redirect || registerMutation.data?.redirect;
+    } else if (user) {
+      setLocation("/");
+    }
+  }, [user, loginMutation.data, registerMutation.data, setLocation]);
 
   return (
     <div className="min-h-screen flex">
@@ -33,7 +37,7 @@ export default function AuthPage() {
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="register">Register</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="login">
                 <AuthForm 
                   mode="login" 
@@ -41,7 +45,7 @@ export default function AuthPage() {
                   isLoading={loginMutation.isPending}
                 />
               </TabsContent>
-              
+
               <TabsContent value="register">
                 <AuthForm 
                   mode="register" 
