@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import type { User, Client } from "@shared/schema";
 import { useLocation, Link } from "wouter";
-import { Loader2, Users, KeyRound, ShieldAlert } from "lucide-react";
+import { Loader2, Users, KeyRound, ShieldAlert, Eye } from "lucide-react";
 
 export default function AdminPage() {
   const { user } = useAuth();
