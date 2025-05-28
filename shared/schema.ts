@@ -22,6 +22,7 @@ export const insertWebAuthnCredentialSchema = z.object({
 
 export const insertClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
   redirectUris: z.array(z.string().url("Invalid redirect URI")),
   userId: z.string().optional(),
   allowedScopes: z.array(z.string()).default(['read']), // Default to basic read scope

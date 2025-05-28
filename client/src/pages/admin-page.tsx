@@ -67,8 +67,8 @@ export default function AdminPage() {
             </p>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" disabled>
-              Coming Soon
+            <Button asChild>
+              <Link to="/admin/clients">Manage Clients</Link>
             </Button>
           </CardFooter>
         </Card>
