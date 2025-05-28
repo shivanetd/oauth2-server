@@ -23,6 +23,39 @@ const tokenSchema = z.object({
 });
 
 export function setupOAuth(app: Express) {
+  // Add OAuth2 Metadata endpoint
+  app.get("/.well-known/oauth-authorization-server", (_req, res) => {
+    const baseUrl = process.env.BASE_URL || `http://localhost:5000`;
+
+    res.json({
+      issuer: baseUrl,
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      jwks_uri: `${baseUrl}/.well-known/jwks.json`,
+      response_types_supported: ["code", "token"],
+      grant_types_supported: [
+        "authorization_code",
+        "client_credentials",
+        "refresh_token",
+        "implicit"
+      ],
+      token_endpoint_auth_methods_supported: [
+        "client_secret_basic",
+        "client_secret_post"
+      ],
+      scopes_supported: ["read", "write", "admin"],
+      claims_supported: ["sub", "iss", "exp", "iat", "client_id", "scope"],
+      id_token_signing_alg_values_supported: ["RS256"],
+      service_documentation: `${baseUrl}/docs`,
+      ui_locales_supported: ["en-US"],
+      op_tos_uri: `${baseUrl}/terms`,
+      op_policy_uri: `${baseUrl}/privacy`,
+      code_challenge_methods_supported: ["S256", "plain"],
+      introspection_endpoint: `${baseUrl}/oauth/introspect`,
+      revocation_endpoint: `${baseUrl}/oauth/revoke`,
+    });
+  });
+
   // Add JWKS endpoint
   app.get("/.well-known/jwks.json", async (req, res) => {
     try {
