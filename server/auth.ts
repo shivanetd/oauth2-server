@@ -1,3 +1,26 @@
+/**
+ * Authentication System Implementation
+ * 
+ * This module provides a comprehensive authentication system supporting multiple
+ * authentication methods for the OAuth2 authorization server. It handles user
+ * registration, login, session management, and OAuth provider integration.
+ * 
+ * Authentication Methods:
+ * - Local username/password authentication with secure password hashing
+ * - OAuth integration with GitHub and Google providers
+ * - Session-based authentication state management
+ * 
+ * Security Features:
+ * - Scrypt password hashing with salt for security
+ * - Constant-time password comparison to prevent timing attacks
+ * - Secure session management with configurable storage
+ * - CSRF protection through session configuration
+ * - Secure cookie handling for session tokens
+ * 
+ * @author Authentication Team
+ * @version 1.0.0
+ */
+
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GitHubStrategy } from "passport-github2";

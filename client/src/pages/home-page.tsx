@@ -25,13 +25,13 @@ export default function HomePage() {
   if (!user) return null;
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Welcome, {user.username}</h1>
-          <p className="text-muted-foreground">Manage your OAuth2 applications and security settings</p>
+    <div className="container mx-auto py-4 px-4 sm:py-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">Welcome, {user.username}</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage your OAuth2 applications and security settings</p>
         </div>
-        <Button variant="outline" onClick={() => logoutMutation.mutate()}>
+        <Button variant="outline" onClick={() => logoutMutation.mutate()} size="sm" className="sm:size-default self-start">
           Logout
         </Button>
       </div>
@@ -39,18 +39,21 @@ export default function HomePage() {
       <div className="grid gap-8">
         {/* Passkey Section */}
         <section>
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-2xl font-semibold">Passkeys</h2>
-              <p className="text-muted-foreground">Manage your secure, phishing-resistant passkeys</p>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+            <div className="flex-1">
+              <h2 className="text-xl sm:text-2xl font-semibold">Passkeys</h2>
+              <p className="text-muted-foreground text-sm sm:text-base">Manage your secure, phishing-resistant passkeys</p>
             </div>
             <Button 
               onClick={() => registerPasskeyMutation.mutate()} 
               disabled={registerPasskeyMutation.isPending}
+              size="sm" 
+              className="sm:size-default self-start"
             >
               {registerPasskeyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Fingerprint className="mr-2 h-4 w-4" />
-              Add Passkey
+              <span className="hidden sm:inline">Add Passkey</span>
+              <span className="sm:hidden">Add</span>
             </Button>
           </div>
 
@@ -98,12 +101,14 @@ export default function HomePage() {
 
         {/* Applications Section */}
         <section>
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-2xl font-semibold">Your Applications</h2>
-              <p className="text-muted-foreground">Manage OAuth2 clients for your applications</p>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+            <div className="flex-1">
+              <h2 className="text-xl sm:text-2xl font-semibold">Your Applications</h2>
+              <p className="text-muted-foreground text-sm sm:text-base">Manage OAuth2 clients for your applications</p>
             </div>
-            <RegisterClientDialog />
+            <div className="self-start">
+              <RegisterClientDialog />
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -135,24 +140,31 @@ export default function HomePage() {
 
 function ClientCard({ client }: { client: Client }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{client.name}</CardTitle>
-        <CardDescription>Created on {new Date(client.createdAt).toLocaleDateString()}</CardDescription>
+    <Card className="h-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">{client.name}</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
+          Created on {new Date(client.createdAt).toLocaleDateString()}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3 pb-3">
         <div>
-          <div className="text-sm font-medium">Client ID</div>
-          <div className="text-sm text-muted-foreground break-all">{client.clientId}</div>
+          <div className="text-xs sm:text-sm font-medium mb-1">Client ID</div>
+          <div className="text-xs sm:text-sm text-muted-foreground break-all font-mono bg-muted p-2 rounded">
+            {client.clientId}
+          </div>
         </div>
         <div>
-          <div className="text-sm font-medium">Client Secret</div>
-          <div className="text-sm text-muted-foreground break-all">{client.clientSecret}</div>
+          <div className="text-xs sm:text-sm font-medium mb-1">Client Secret</div>
+          <div className="text-xs sm:text-sm text-muted-foreground break-all font-mono bg-muted p-2 rounded">
+            {client.clientSecret}
+          </div>
         </div>
       </CardContent>
-      <CardFooter>
-        <div className="text-sm text-muted-foreground">
-          Redirect URIs: {client.redirectUris.join(", ")}
+      <CardFooter className="pt-3 border-t">
+        <div className="text-xs sm:text-sm text-muted-foreground">
+          <div className="font-medium mb-1">Redirect URIs:</div>
+          <div className="break-words">{client.redirectUris.join(", ")}</div>
         </div>
       </CardFooter>
     </Card>
