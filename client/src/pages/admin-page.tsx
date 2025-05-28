@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import type { User, Client } from "@shared/schema";
 import { useLocation, Link } from "wouter";
-import { Loader2, Users, KeyRound, ShieldAlert, Eye } from "lucide-react";
+import { Loader2, Users, KeyRound, ShieldAlert, Eye, TrendingUp } from "lucide-react";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -157,6 +157,24 @@ export default function AdminPage() {
           <CardFooter>
             <Button asChild>
               <Link to="/admin/scope-demo">View Demo</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/40 dark:to-pink-950/40 hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-xl">
+              <TrendingUp className="h-5 w-5 mr-2 text-purple-600 dark:text-purple-400" /> User Trends Explorer
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <p className="text-sm text-muted-foreground">
+              Analyze user activity patterns, engagement trends, and growth metrics
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button asChild>
+              <Link to="/admin/trends">Explore Trends</Link>
             </Button>
           </CardFooter>
         </Card>
