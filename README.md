@@ -66,3 +66,6 @@ npm test
 ├── config/             # Configuration files
 ├── public/             # Static files
 └── README.md           # Project documentation
+
+## Contributing
+Feel free to submit issues or pull requests. Contributions are welcome!
