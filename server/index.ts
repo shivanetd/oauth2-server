@@ -1,6 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { auditMiddleware } from "./middleware/audit";
+import { securityHeaders, enterpriseCors, securityMonitoring } from "./middleware/security";
+import { createRateLimitMiddleware, generalRateLimiter } from "./middleware/rateLimiter";
+import { healthCheck, readinessCheck, livenessCheck, healthMonitor } from "./middleware/health";
 
 const app = express();
 app.use(express.json());
