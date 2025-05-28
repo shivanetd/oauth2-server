@@ -9,7 +9,9 @@ import {
   verifyAuthenticationResponse,
   type AuthenticatorTransportFuture,
   type VerifiedRegistrationResponse,
-  type VerifiedAuthenticationResponse
+  type VerifiedAuthenticationResponse,
+  type WebAuthnCredential,
+  type Base64URLString
 } from '@simplewebauthn/server';
 
 // Add WebAuthn to session type
@@ -53,16 +55,19 @@ export function setupWebAuthn(app: Express) {
       await storage.updateUserChallenge(user._id.toString(), challenge);
       
       // Generate registration options for the user
+      // Convert the user ID string to a Uint8Array (using SHA-256 hash of the ID)
+      const userIDBytes = crypto.createHash('sha256').update(user._id.toString()).digest();
+      
       const options = generateRegistrationOptions({
         rpName: RP_NAME,
         rpID: RP_ID,
-        userID: user._id.toString(),
+        userID: userIDBytes,
         userName: user.username,
         // Prevent users from re-registering the same device
         excludeCredentials: userAuthenticators.map(authenticator => ({
-          id: Buffer.from(authenticator.credentialID, 'base64url'),
+          id: authenticator.credentialID, // Already base64url encoded string
           type: 'public-key',
-          transports: authenticator.transports || [],
+          transports: authenticator.transports as AuthenticatorTransportFuture[] || [],
         })),
         authenticatorSelection: {
           // Defaults
@@ -119,17 +124,22 @@ export function setupWebAuthn(app: Express) {
         return res.status(400).json({ error: 'Registration verification failed' });
       }
       
-      // Store the new authenticator
-      const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
+      // Extract credential data from the verification.registrationInfo
+      const regInfo = verification.registrationInfo;
       
+      if (!regInfo || !regInfo.credential) {
+        return res.status(400).json({ error: 'Missing credential information in verification' });
+      }
+      
+      // Create new authenticator record
       const newAuthenticator = {
         userId: user._id.toString(),
-        credentialID: Buffer.from(credentialID).toString('base64url'),
-        credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
-        counter,
-        credentialDeviceType: verification.registrationInfo.credentialDeviceType,
-        credentialBackedUp: verification.registrationInfo.credentialBackedUp,
-        transports: response.response.transports,
+        credentialID: regInfo.credential.id, // Already Base64URL encoded
+        credentialPublicKey: Buffer.from(regInfo.credential.publicKey).toString('base64url'),
+        counter: regInfo.credential.counter,
+        credentialDeviceType: regInfo.credentialDeviceType || 'single_device',
+        credentialBackedUp: regInfo.credentialBackedUp || false,
+        transports: response.response.transports || [],
         createdAt: new Date(),
       };
       
@@ -179,9 +189,9 @@ export function setupWebAuthn(app: Express) {
       const options = generateAuthenticationOptions({
         rpID: RP_ID,
         allowCredentials: userAuthenticators.map(authenticator => ({
-          id: Buffer.from(authenticator.credentialID, 'base64url'),
+          id: authenticator.credentialID, // Already base64url encoded string
           type: 'public-key',
-          transports: authenticator.transports || [],
+          transports: authenticator.transports as AuthenticatorTransportFuture[] || [],
         })),
         userVerification: 'preferred',
         challenge,
@@ -236,17 +246,21 @@ export function setupWebAuthn(app: Express) {
       // Verify the assertion
       let verification: VerifiedAuthenticationResponse;
       try {
+        // Create a proper WebAuthnCredential object
+        const webauthnCredential: WebAuthnCredential = {
+          id: credential.credentialID, // Base64URL string
+          publicKey: Buffer.from(credential.credentialPublicKey, 'base64url'),
+          counter: credential.counter,
+          transports: credential.transports as AuthenticatorTransportFuture[] || undefined,
+        };
+        
         verification = await verifyAuthenticationResponse({
           response,
           expectedChallenge,
           expectedOrigin: ORIGIN,
           expectedRPID: RP_ID,
-          authenticator: {
-            credentialID: Buffer.from(credential.credentialID, 'base64url'),
-            credentialPublicKey: Buffer.from(credential.credentialPublicKey, 'base64url'),
-            counter: credential.counter,
-            transports: credential.transports,
-          },
+          requireUserVerification: true,
+          credential: webauthnCredential,
         });
       } catch (error) {
         console.error(error);
