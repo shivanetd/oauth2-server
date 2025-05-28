@@ -22,7 +22,7 @@ export const insertUserSchema = z.object({
   
   // Profile preferences
   preferredLanguage: z.string().default("en"),
-  theme: z.enum(["light", "dark", "system"]).default("system"),
+  theme: z.enum(["light", "dark", "system"] as const).default("system"),
   timezone: z.string().default("UTC"),
   
   // Security related
