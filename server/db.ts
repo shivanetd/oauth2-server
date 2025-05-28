@@ -7,11 +7,11 @@ import { neonConfig } from '@neondatabase/serverless'; //Keeping this for neonCo
 
 neonConfig.webSocketConstructor = ws;
 
-if (!process.env.MONGO_CONNECTION_STRING) {
+if (!process.env.MONGODB_URI) {
   throw new Error("MONGODB_URI must be set. Please provide your MongoDB connection string.");
 }
 
-export const client = new MongoClient(process.env.MONGO_CONNECTION_STRING);
+export const client = new MongoClient(process.env.MONGODB_URI);
 export const db = client.db("oauth2-server");
 
 // Connect to MongoDB
