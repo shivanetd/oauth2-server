@@ -31,6 +31,15 @@ const tokenSchema = z.object({
   scope: z.string().optional(),
 });
 
+function validateScopes(requestedScopes: string[] | undefined, allowedScopes: string[]): string[] {
+  if (!requestedScopes || requestedScopes.length === 0) {
+    // If no scopes requested, grant minimum 'read' scope if allowed
+    return allowedScopes.includes('read') ? ['read'] : [];
+  }
+  // Only grant scopes that are allowed for the client
+  return requestedScopes.filter(scope => allowedScopes.includes(scope));
+}
+
 export function setupOAuth(app: Express) {
   // Add OAuth2 Metadata endpoint
   app.get("/.well-known/oauth-authorization-server", (_req, res) => {
@@ -114,12 +123,20 @@ export function setupOAuth(app: Express) {
         return res.status(400).send("Invalid redirect_uri");
       }
 
+      // Validate and filter requested scopes
+      const requestedScopes = params.scope?.split(" ");
+      const validScopes = validateScopes(requestedScopes, client.allowedScopes);
+
+      if (requestedScopes && validScopes.length === 0) {
+        return res.status(400).send("Invalid or insufficient scopes requested");
+      }
+
       // Handle implicit flow
       if (params.response_type === "token") {
         const tokenPayload = {
           sub: req.user!._id.toString(),
           client_id: client._id.toString(),
-          scope: params.scope?.split(" "),
+          scope: validScopes,
           type: "access_token"
         };
 
@@ -127,7 +144,7 @@ export function setupOAuth(app: Express) {
 
         // Redirect with token in fragment
         const redirectUrl = new URL(params.redirect_uri);
-        redirectUrl.hash = `access_token=${accessToken}&token_type=Bearer&expires_in=3600`;
+        redirectUrl.hash = `access_token=${accessToken}&token_type=Bearer&expires_in=3600&scope=${validScopes.join(" ")}`;
         if (params.state) {
           redirectUrl.hash += `&state=${params.state}`;
         }
@@ -140,7 +157,7 @@ export function setupOAuth(app: Express) {
         code,
         clientId: client._id.toString(),
         userId: req.user!._id.toString(),
-        scope: params.scope?.split(" "),
+        scope: validScopes,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       });
 
@@ -149,6 +166,7 @@ export function setupOAuth(app: Express) {
       if (params.state) {
         redirectUrl.searchParams.set("state", params.state);
       }
+      redirectUrl.searchParams.set("scope", validScopes.join(" "));
 
       res.redirect(redirectUrl.toString());
     } catch (error) {
