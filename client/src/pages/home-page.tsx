@@ -9,7 +9,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Client } from "@shared/schema";
+import type { Client, InsertClient } from "@shared/schema";
+import { Loader2 } from "lucide-react";
 
 export default function HomePage() {
   const { user, logoutMutation } = useAuth();
@@ -38,7 +39,7 @@ export default function HomePage() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {clients.map((client) => (
-              <ClientCard key={client.id} client={client} />
+              <ClientCard key={client._id} client={client} />
             ))}
           </div>
         </section>
@@ -74,16 +75,17 @@ function ClientCard({ client }: { client: Client }) {
 }
 
 function RegisterClientDialog() {
-  const form = useForm({
+  const form = useForm<InsertClient>({
     resolver: zodResolver(insertClientSchema),
     defaultValues: {
       name: "",
       redirectUris: [],
+      userId: "", // This will be set by the server
     },
   });
 
   const createClientMutation = useMutation({
-    mutationFn: async (data: typeof form.getValues) => {
+    mutationFn: async (data: Omit<InsertClient, "userId">) => {
       const res = await apiRequest("POST", "/api/clients", data);
       return res.json();
     },
@@ -103,7 +105,14 @@ function RegisterClientDialog() {
           <DialogTitle>Register OAuth2 Client</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => createClientMutation.mutate(data))} className="space-y-4">
+          <form 
+            onSubmit={form.handleSubmit((data) => {
+              // Omit userId as it will be set by the server
+              const { userId, ...submitData } = data;
+              createClientMutation.mutate(submitData);
+            })} 
+            className="space-y-4"
+          >
             <FormField
               control={form.control}
               name="name"
@@ -134,7 +143,10 @@ function RegisterClientDialog() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">Register Application</Button>
+            <Button type="submit" className="w-full" disabled={createClientMutation.isPending}>
+              {createClientMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Register Application
+            </Button>
           </form>
         </Form>
       </DialogContent>
