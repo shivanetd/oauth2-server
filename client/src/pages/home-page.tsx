@@ -10,7 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Client, InsertClient, WebAuthnCredential } from "@shared/schema";
-import { Loader2, Fingerprint, KeyRound } from "lucide-react";
+import { Loader2, Fingerprint, KeyRound, ShieldAlert } from "lucide-react";
+import { Link } from "wouter";
 
 const AVAILABLE_SCOPES = ['read', 'write', 'admin']; // Add this line to define available scopes
 
@@ -31,10 +32,45 @@ export default function HomePage() {
           <h1 className="text-2xl sm:text-3xl font-bold">Welcome, {user.username}</h1>
           <p className="text-muted-foreground text-sm sm:text-base">Manage your OAuth2 applications and security settings</p>
         </div>
-        <Button variant="outline" onClick={() => logoutMutation.mutate()} size="sm" className="sm:size-default self-start">
-          Logout
-        </Button>
+        <div className="flex gap-2 self-start">
+          {user.isAdmin && (
+            <Button asChild variant="outline" size="sm" className="sm:size-default">
+              <Link to="/admin">Admin Panel</Link>
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => logoutMutation.mutate()} size="sm" className="sm:size-default">
+            Logout
+          </Button>
+        </div>
       </div>
+
+      {/* Admin Quick Access */}
+      {user.isAdmin && (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-blue-200 dark:border-blue-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+              <ShieldAlert className="h-5 w-5" />
+              Administrator Access
+            </CardTitle>
+            <CardDescription>
+              You have admin privileges. Access advanced management features.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm" variant="outline">
+                <Link to="/admin">Dashboard</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/admin/users">Manage Users</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/admin/clients">Manage Clients</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-8">
         {/* Passkey Section */}
