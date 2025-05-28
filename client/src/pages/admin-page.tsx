@@ -129,7 +129,7 @@ export default function AdminPage() {
                   </TableHeader>
                   <TableBody>
                     {clients.map((client) => (
-                      <TableRow key={client._id}>
+                      <TableRow key={client._id.toString()}>
                         <TableCell>{client.name}</TableCell>
                         <TableCell className="break-all">{client.clientId}</TableCell>
                         <TableCell>{client.userId}</TableCell>

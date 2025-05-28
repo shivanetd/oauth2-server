@@ -62,8 +62,14 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<SanitizedUser | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [newUser, setNewUser] = useState({
+    username: "",
+    password: "",
+    isAdmin: false
+  });
 
   // Redirect if not admin
   if (user && !user.isAdmin) {
@@ -81,6 +87,34 @@ export default function AdminUsersPage() {
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/admin/users");
       return await res.json();
+    }
+  });
+
+  // Mutation to create a new user
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: { username: string, password: string, isAdmin: boolean }) => {
+      const res = await apiRequest("POST", "/api/register", userData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "User Created",
+        description: "The new user has been created successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setCreateDialogOpen(false);
+      setNewUser({
+        username: "",
+        password: "",
+        isAdmin: false
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Creation Failed",
+        description: error.message || "Failed to create user.",
+        variant: "destructive",
+      });
     }
   });
 
@@ -149,6 +183,24 @@ export default function AdminUsersPage() {
     setDeleteDialogOpen(true);
   };
 
+  // Handler for creating a new user
+  const handleCreateUser = () => {
+    if (!newUser.username || !newUser.password) {
+      toast({
+        title: "Missing Information",
+        description: "Username and password are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createUserMutation.mutate({
+      username: newUser.username,
+      password: newUser.password,
+      isAdmin: newUser.isAdmin
+    });
+  };
+
   // Handler for updating a user
   const handleUpdateUser = () => {
     if (!selectedUser) return;
@@ -197,6 +249,9 @@ export default function AdminUsersPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">User Management</h1>
         <div className="flex gap-2">
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <PlusCircle className="h-4 w-4 mr-2" /> Create User
+          </Button>
           <Button variant="outline" asChild>
             <Link to="/admin">Back to Admin</Link>
           </Button>
@@ -264,6 +319,65 @@ export default function AdminUsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="new-username">Username</Label>
+              <Input
+                id="new-username"
+                value={newUser.username}
+                onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                placeholder="Enter username"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newUser.password}
+                onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                placeholder="Enter password"
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="new-isAdmin"
+                checked={newUser.isAdmin}
+                onCheckedChange={(checked) => setNewUser({...newUser, isAdmin: !!checked})}
+              />
+              <Label htmlFor="new-isAdmin">Administrator</Label>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleCreateUser}
+              disabled={createUserMutation.isPending}
+            >
+              {createUserMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
