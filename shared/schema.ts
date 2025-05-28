@@ -22,6 +22,14 @@ export const insertAuthCodeSchema = z.object({
   expiresAt: z.date(),
 });
 
+export const insertJwtKeysSchema = z.object({
+  privateKey: z.string(),
+  publicKey: z.string(),
+  algorithm: z.string(),
+  createdAt: z.date(),
+  isActive: z.boolean(),
+});
+
 export const insertTokenSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
@@ -45,6 +53,9 @@ export type Client = InsertClient & {
 
 export type InsertAuthCode = z.infer<typeof insertAuthCodeSchema>;
 export type AuthCode = InsertAuthCode & { _id: ObjectId };
+
+export type InsertJwtKeys = z.infer<typeof insertJwtKeysSchema>;
+export type JwtKeys = InsertJwtKeys & { _id: ObjectId };
 
 export type InsertToken = z.infer<typeof insertTokenSchema>;
 export type Token = InsertToken & { _id: ObjectId };
