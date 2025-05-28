@@ -7,7 +7,6 @@ class JwtService {
   private currentKeys: JwtKeys | null = null;
 
   async initialize() {
-    // Get the active key pair or generate a new one
     const keys = await this.getActiveKeys();
     if (!keys) {
       await this.generateNewKeyPair();
@@ -22,8 +21,37 @@ class JwtService {
     return this.currentKeys;
   }
 
+  async getPublicKey(): Promise<string | null> {
+    const keys = await this.getActiveKeys();
+    return keys?.publicKey || null;
+  }
+
+  async getJWKS() {
+    const keys = await this.getActiveKeys();
+    if (!keys) {
+      throw new Error('No active keys found');
+    }
+
+    // Convert PEM public key to JWK format
+    const key = crypto.createPublicKey(keys.publicKey);
+    const keyData = key.export({ format: 'jwk' });
+
+    return {
+      ...keyData,
+      kid: this.generateKeyId(keys.publicKey),
+      use: 'sig',
+      alg: 'RS256',
+    };
+  }
+
+  private generateKeyId(publicKey: string): string {
+    return crypto.createHash('sha256')
+      .update(publicKey)
+      .digest('hex')
+      .slice(0, 16);
+  }
+
   private async generateNewKeyPair() {
-    // Generate new RSA key pair
     const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
       modulusLength: 2048,
       publicKeyEncoding: {
@@ -36,13 +64,11 @@ class JwtService {
       }
     });
 
-    // Deactivate any existing active keys
     await db.collection('jwtKeys').updateMany(
       { isActive: true },
       { $set: { isActive: false } }
     );
 
-    // Store new keys
     const newKeys = {
       privateKey,
       publicKey,
@@ -55,15 +81,16 @@ class JwtService {
     this.currentKeys = { ...newKeys, _id: result.insertedId };
   }
 
-  async generateAccessToken(payload: any, expiresIn: string = '1h'): Promise<string> {
+  async generateAccessToken(payload: object, expiresIn: string = '1h'): Promise<string> {
     const keys = await this.getActiveKeys();
     if (!keys) {
       throw new Error('No active JWT keys found');
     }
 
     return jwt.sign(payload, keys.privateKey, {
-      algorithm: keys.algorithm as jwt.Algorithm,
-      expiresIn
+      algorithm: 'RS256',
+      expiresIn,
+      keyid: this.generateKeyId(keys.publicKey)
     });
   }
 
@@ -86,7 +113,9 @@ class JwtService {
     }
 
     try {
-      return jwt.verify(token, keys.publicKey);
+      return jwt.verify(token, keys.publicKey, {
+        algorithms: ['RS256']
+      });
     } catch (error) {
       throw new Error('Invalid token');
     }

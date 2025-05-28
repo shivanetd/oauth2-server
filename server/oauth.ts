@@ -23,6 +23,24 @@ const tokenSchema = z.object({
 });
 
 export function setupOAuth(app: Express) {
+  // Add JWKS endpoint
+  app.get("/.well-known/jwks.json", async (req, res) => {
+    try {
+      const publicKey = await jwtService.getPublicKey();
+      if (!publicKey) {
+        return res.status(500).send("No active key pair found");
+      }
+
+      // Convert PEM to JWK format
+      const jwk = await jwtService.getJWKS();
+      res.json({
+        keys: [jwk]
+      });
+    } catch (error) {
+      res.status(500).send("Error retrieving public key");
+    }
+  });
+
   // Authorization endpoint
   app.get("/oauth/authorize", async (req, res) => {
     try {
@@ -103,7 +121,7 @@ export function setupOAuth(app: Express) {
           }
 
           const authCode = await storage.getAuthCodeByCode(params.code);
-          if (!authCode || authCode.expiresAt < new Date() || 
+          if (!authCode || authCode.expiresAt < new Date() ||
               authCode.clientId !== client._id.toString()) {
             return res.status(400).send("Invalid authorization code");
           }
@@ -120,7 +138,7 @@ export function setupOAuth(app: Express) {
           }
 
           const token = await storage.getTokenByRefreshToken(params.refresh_token);
-          if (!token || token.expiresAt < new Date() || 
+          if (!token || token.expiresAt < new Date() ||
               token.clientId !== client._id.toString()) {
             return res.status(400).send("Invalid refresh token");
           }
