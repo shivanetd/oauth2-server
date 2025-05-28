@@ -46,10 +46,7 @@ COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy built application from builder stage
-COPY --from=builder --chown=nodejs:nodejs /app/build ./build
-
-# Copy client assets needed at runtime
-COPY --from=builder --chown=nodejs:nodejs /app/client/dist ./client/dist
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./build
 
 # Use the non-root user
 USER nodejs
@@ -66,4 +63,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD node -e "const http=require('http');const options={hostname:'localhost',port:5000,path:'/health',timeout:2000};const req=http.get(options,(res)=>{process.exit(res.statusCode === 200 ? 0 : 1)});req.on('error',()=>process.exit(1));req.end()"
 
 # Start the application
-CMD ["node", "build/server/index.js"]
+CMD ["node", "build/index.js"]
