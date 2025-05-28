@@ -104,6 +104,66 @@ export type Token = InsertToken & { _id: ObjectId };
 export type InsertWebAuthnCredential = z.infer<typeof insertWebAuthnCredentialSchema>;
 export type WebAuthnCredential = InsertWebAuthnCredential & { _id: ObjectId };
 
-// Available scopes
-export const AVAILABLE_SCOPES = ['read', 'write', 'admin'] as const;
+// Available scopes with profile data access
+export const AVAILABLE_SCOPES = [
+  'read',           // Basic read access
+  'write',          // Write access to user's own data
+  'admin',          // Administrative access
+  'profile',        // Access to basic profile info (username, name)
+  'email',          // Access to email address
+  'phone',          // Access to phone number
+  'preferences',    // Access to user preferences (theme, language, timezone)
+  'organization',   // Access to organization and role information
+  'security'        // Access to security-related information (MFA status, last login)
+] as const;
 export type Scope = typeof AVAILABLE_SCOPES[number];
+
+// Scope to profile attribute mapping
+export const SCOPE_TO_ATTRIBUTES: Record<Scope, string[]> = {
+  'read': ['username'], // Basic read only provides username
+  'write': [], // Write scope doesn't expose additional attributes, just allows modifications
+  'admin': ['*'], // Admin scope provides access to all attributes
+  'profile': ['username', 'firstName', 'lastName', 'createdAt'],
+  'email': ['email'],
+  'phone': ['phoneNumber'],
+  'preferences': ['preferredLanguage', 'theme', 'timezone'],
+  'organization': ['organizationId', 'role'],
+  'security': ['mfaEnabled', 'lastLogin', 'isActive']
+};
+
+// Helper function to get allowed attributes based on scopes
+export function getAllowedAttributes(scopes: string[]): string[] {
+  const allowedAttributes = new Set<string>();
+  
+  for (const scope of scopes) {
+    if (scope in SCOPE_TO_ATTRIBUTES) {
+      const attributes = SCOPE_TO_ATTRIBUTES[scope as Scope];
+      if (attributes.includes('*')) {
+        // Admin scope - return all user attributes
+        return [
+          'username', 'firstName', 'lastName', 'email', 'phoneNumber',
+          'isAdmin', 'isActive', 'lastLogin', 'createdAt', 'updatedAt',
+          'preferredLanguage', 'theme', 'timezone', 'mfaEnabled',
+          'organizationId', 'role'
+        ];
+      }
+      attributes.forEach(attr => allowedAttributes.add(attr));
+    }
+  }
+  
+  return Array.from(allowedAttributes);
+}
+
+// Helper function to filter user data based on allowed scopes
+export function filterUserByScopes(user: User, scopes: string[]): Partial<User> {
+  const allowedAttributes = getAllowedAttributes(scopes);
+  const filteredUser: Partial<User> = { _id: user._id }; // Always include ID
+  
+  for (const attr of allowedAttributes) {
+    if (attr in user) {
+      (filteredUser as any)[attr] = (user as any)[attr];
+    }
+  }
+  
+  return filteredUser;
+}

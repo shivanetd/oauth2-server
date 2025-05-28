@@ -4,6 +4,7 @@ import { z } from "zod";
 import { jwtService } from "./jwt";
 import crypto from "crypto";
 import { SessionData } from "express-session";
+import { filterUserByScopes, getAllowedAttributes } from "@shared/schema";
 
 // Extend the Session type to include returnTo
 declare module "express-session" {
