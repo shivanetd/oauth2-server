@@ -8,13 +8,15 @@ import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+type AuthResponse = SelectUser | { user: SelectUser, redirect: string };
+
 type AuthContextType = {
   user: SelectUser | null;
   isLoading: boolean;
   error: Error | null;
-  loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
+  loginMutation: UseMutationResult<AuthResponse, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
+  registerMutation: UseMutationResult<AuthResponse, Error, InsertUser>;
 };
 
 type LoginData = Pick<InsertUser, "username" | "password">;
@@ -36,8 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (data: SelectUser | { user: SelectUser, redirect: string }) => {
+      if ('user' in data && 'redirect' in data) {
+        // Handle response with redirect
+        queryClient.setQueryData(["/api/user"], data.user);
+        
+        // If we have a redirect URL from an OAuth flow, don't navigate immediately
+        // Let the auth page handle the redirection
+      } else {
+        // Standard user login without redirect
+        queryClient.setQueryData(["/api/user"], data);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -53,8 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/register", credentials);
       return await res.json();
     },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (data: SelectUser | { user: SelectUser, redirect: string }) => {
+      if ('user' in data && 'redirect' in data) {
+        // Handle response with redirect
+        queryClient.setQueryData(["/api/user"], data.user);
+        
+        // If we have a redirect URL from an OAuth flow, don't navigate immediately
+        // Let the auth page handle the redirection
+      } else {
+        // Standard user login without redirect
+        queryClient.setQueryData(["/api/user"], data);
+      }
     },
     onError: (error: Error) => {
       toast({

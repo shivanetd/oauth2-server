@@ -4,13 +4,20 @@ import { Strategy as GitHubStrategy } from "passport-github2";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Express } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import crypto, { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 import MongoStore from "connect-mongo";
 import CookieParser from "cookie-parser";
 import BodyParser from "body-parser";
+
+// Ensure the SessionData interface includes our custom properties
+declare module "express-session" {
+  interface SessionData {
+    returnTo?: string;
+  }
+}
 
 declare global {
   namespace Express {
@@ -84,14 +91,14 @@ export function setupAuth(app: Express) {
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL: `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/github/callback`
     },
-    async function(accessToken, refreshToken, profile, done) {
+    async function(accessToken: string, refreshToken: string, profile: any, done: Function) {
       try {
         let user = await storage.getUserByUsername(`github:${profile.id}`);
 
         if (!user) {
           user = await storage.createUser({
             username: `github:${profile.id}`,
-            password: await hashPassword(crypto.randomBytes(32).toString('hex')),
+            password: await hashPassword(randomBytes(32).toString('hex')),
             isAdmin: false
           });
         }
@@ -110,14 +117,14 @@ export function setupAuth(app: Express) {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/google/callback`
     },
-    async function(accessToken, refreshToken, profile, done) {
+    async function(accessToken: string, refreshToken: string, profile: any, done: Function) {
       try {
         let user = await storage.getUserByUsername(`google:${profile.id}`);
 
         if (!user) {
           user = await storage.createUser({
             username: `google:${profile.id}`,
-            password: await hashPassword(crypto.randomBytes(32).toString('hex')),
+            password: await hashPassword(randomBytes(32).toString('hex')),
             isAdmin: false
           });
         }
