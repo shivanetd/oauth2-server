@@ -68,7 +68,18 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
-    isAdmin: false
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    isAdmin: false,
+    isActive: true,
+    mfaEnabled: false,
+    role: "",
+    preferredLanguage: "en",
+    theme: "system",
+    timezone: "UTC",
+    organizationId: ""
   });
 
   // Redirect if not admin
@@ -92,7 +103,7 @@ export default function AdminUsersPage() {
 
   // Mutation to create a new user
   const createUserMutation = useMutation({
-    mutationFn: async (userData: { username: string, password: string, isAdmin: boolean }) => {
+    mutationFn: async (userData: Partial<SanitizedUser> & { password: string }) => {
       const res = await apiRequest("POST", "/api/register", userData);
       return await res.json();
     },
@@ -106,7 +117,18 @@ export default function AdminUsersPage() {
       setNewUser({
         username: "",
         password: "",
-        isAdmin: false
+        firstName: "",
+        lastName: "",
+        email: "",
+        phoneNumber: "",
+        isAdmin: false,
+        isActive: true,
+        mfaEnabled: false,
+        role: "",
+        preferredLanguage: "en",
+        theme: "system",
+        timezone: "UTC",
+        organizationId: ""
       });
     },
     onError: (error) => {
@@ -194,11 +216,16 @@ export default function AdminUsersPage() {
       return;
     }
     
-    createUserMutation.mutate({
-      username: newUser.username,
-      password: newUser.password,
-      isAdmin: newUser.isAdmin
-    });
+    if (newUser.email && !newUser.email.includes('@')) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createUserMutation.mutate(newUser);
   };
 
   // Handler for updating a user
@@ -269,7 +296,10 @@ export default function AdminUsersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Username</TableHead>
-                <TableHead>Admin</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Role</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -284,12 +314,28 @@ export default function AdminUsersPage() {
                     )}
                   </TableCell>
                   <TableCell>
+                    {userItem.firstName && userItem.lastName 
+                      ? `${userItem.firstName} ${userItem.lastName}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {userItem.email || "—"}
+                  </TableCell>
+                  <TableCell>
+                    {userItem.isActive 
+                      ? <Badge variant="outline" className="bg-green-50 text-green-700">Active</Badge>
+                      : <Badge variant="outline" className="bg-red-50 text-red-700">Inactive</Badge>}
+                    {userItem.mfaEnabled && (
+                      <Badge variant="outline" className="ml-1 bg-blue-50 text-blue-700">MFA</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {userItem.isAdmin ? (
                       <div className="flex items-center">
                         <ShieldAlert className="h-4 w-4 mr-1 text-amber-500" />
-                        <span>Yes</span>
+                        <span>Admin</span>
                       </div>
-                    ) : "No"}
+                    ) : userItem.role || "User"}
                   </TableCell>
                   <TableCell>
                     {userItem.createdAt && new Date(userItem.createdAt).toLocaleDateString()}
@@ -322,7 +368,7 @@ export default function AdminUsersPage() {
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New User</DialogTitle>
             <DialogDescription>
@@ -330,35 +376,192 @@ export default function AdminUsersPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-username">Username</Label>
-              <Input
-                id="new-username"
-                value={newUser.username}
-                onChange={(e) => setNewUser({...newUser, username: e.target.value})}
-                placeholder="Enter username"
-              />
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Account Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-username">Username*</Label>
+                  <Input
+                    id="new-username"
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                    placeholder="Enter username"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Password*</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    placeholder="Enter password"
+                    required
+                  />
+                </div>
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="new-password">Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newUser.password}
-                onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                placeholder="Enter password"
-              />
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Personal Information</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-firstName">First Name</Label>
+                  <Input
+                    id="new-firstName"
+                    value={newUser.firstName}
+                    onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                    placeholder="First name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-lastName">Last Name</Label>
+                  <Input
+                    id="new-lastName"
+                    value={newUser.lastName}
+                    onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                    placeholder="Last name"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-email">Email</Label>
+                  <Input
+                    id="new-email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    placeholder="example@domain.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-phone">Phone Number</Label>
+                  <Input
+                    id="new-phone"
+                    value={newUser.phoneNumber}
+                    onChange={(e) => setNewUser({...newUser, phoneNumber: e.target.value})}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="new-isAdmin"
-                checked={newUser.isAdmin}
-                onCheckedChange={(checked) => setNewUser({...newUser, isAdmin: !!checked})}
-              />
-              <Label htmlFor="new-isAdmin">Administrator</Label>
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Roles and Permissions</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-role">Role</Label>
+                  <Input
+                    id="new-role"
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                    placeholder="User role (e.g., Manager, Developer)"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-organization">Organization ID</Label>
+                  <Input
+                    id="new-organization"
+                    value={newUser.organizationId}
+                    onChange={(e) => setNewUser({...newUser, organizationId: e.target.value})}
+                    placeholder="Organization identifier"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="new-isAdmin"
+                    checked={newUser.isAdmin}
+                    onCheckedChange={(checked) => setNewUser({...newUser, isAdmin: !!checked})}
+                  />
+                  <Label htmlFor="new-isAdmin">Administrator</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="new-isActive"
+                    checked={newUser.isActive}
+                    onCheckedChange={(checked) => setNewUser({...newUser, isActive: !!checked})}
+                  />
+                  <Label htmlFor="new-isActive">Active Account</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="new-mfa"
+                    checked={newUser.mfaEnabled}
+                    onCheckedChange={(checked) => setNewUser({...newUser, mfaEnabled: !!checked})}
+                  />
+                  <Label htmlFor="new-mfa">Enable MFA (Multi-Factor Authentication)</Label>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Preferences</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-language">Preferred Language</Label>
+                  <select
+                    id="new-language"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={newUser.preferredLanguage}
+                    onChange={(e) => setNewUser({...newUser, preferredLanguage: e.target.value})}
+                  >
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-theme">Theme</Label>
+                  <select
+                    id="new-theme"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={newUser.theme}
+                    onChange={(e) => setNewUser({...newUser, theme: e.target.value as "light" | "dark" | "system"})}
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="system">System</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-timezone">Timezone</Label>
+                  <select
+                    id="new-timezone"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2"
+                    value={newUser.timezone}
+                    onChange={(e) => setNewUser({...newUser, timezone: e.target.value})}
+                  >
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                    <option value="Europe/London">London (GMT)</option>
+                    <option value="Europe/Paris">Central European Time (CET)</option>
+                    <option value="Asia/Tokyo">Japan (JST)</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
           
