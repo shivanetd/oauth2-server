@@ -41,7 +41,7 @@ export class MongoStorage implements IStorage {
     this.sessionStore = MongoStore.create({
       clientPromise: client.connect(),
       collectionName: 'sessions',
-      ttl: 24 * 60 * 60, // 1 day in seconds
+      ttl: 24 * 60 * 60, // 1 day in seconds,
       crypto: {
         secret: process.env.SESSION_SECRET ?? "dev-secret-key"
       }
