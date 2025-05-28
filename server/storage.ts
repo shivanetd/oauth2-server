@@ -32,6 +32,10 @@ export interface IStorage {
   getTokenByRefreshToken(token: string): Promise<Token | undefined>;
 
   sessionStore: session.Store;
+
+  // Admin operations
+  listUsers(): Promise<User[]>;
+  listAllClients(): Promise<Client[]>;
 }
 
 export class MongoStorage implements IStorage {
@@ -116,6 +120,22 @@ export class MongoStorage implements IStorage {
   async getTokenByRefreshToken(refreshToken: string): Promise<Token | undefined> {
     const token = await db.collection('tokens').findOne({ refreshToken });
     return token as Token | undefined;
+  }
+
+  async listUsers(): Promise<User[]> {
+    const users = await db.collection('users').find().toArray();
+    return users.map(user => ({
+      ...user,
+      _id: user._id.toString()
+    })) as User[];
+  }
+
+  async listAllClients(): Promise<Client[]> {
+    const clients = await db.collection('clients').find().toArray();
+    return clients.map(client => ({
+      ...client,
+      _id: client._id.toString()
+    })) as Client[];
   }
 }
 

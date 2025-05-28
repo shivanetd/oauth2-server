@@ -25,11 +25,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const clientData = insertClientSchema.parse(req.body);
-      var vvs= {
+      const client = await storage.createClient({
         ...clientData,
-        userId: req.user!._id.toString(),
-      };
-      const client = await storage.createClient(vvs);
+        userId: req.user!._id,
+      });
 
       res.status(201).json(client);
     } catch (error) {
@@ -43,19 +42,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).send("Authentication required");
     }
 
-    const clients = await storage.listClientsByUser(req.user!._id.toString());
+    const clients = await storage.listClientsByUser(req.user!._id);
     res.json(clients);
   });
 
   // Admin routes
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
-    const users = Array.from(storage.users.values()).map(({ password, ...user }) => user);
-    res.json(users);
+    try {
+      const users = await storage.listUsers();
+      // Remove sensitive data before sending
+      const sanitizedUsers = users.map(({ password, ...user }) => user);
+      res.json(sanitizedUsers);
+    } catch (error) {
+      res.status(500).send("Error fetching users");
+    }
   });
 
   app.get("/api/admin/clients", requireAdmin, async (req, res) => {
-    const clients = Array.from(storage.clients.values());
-    res.json(clients);
+    try {
+      const clients = await storage.listAllClients();
+      res.json(clients);
+    } catch (error) {
+      res.status(500).send("Error fetching clients");
+    }
   });
 
   const httpServer = createServer(app);
