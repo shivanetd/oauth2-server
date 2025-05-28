@@ -56,6 +56,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const clients = await storage.listClientsByUser(req.user!._id.toString());
     res.json(clients);
   });
+  
+  // Get a specific client
+  app.get("/api/clients/:clientId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+    
+    try {
+      const clientId = req.params.clientId;
+      const client = await storage.getClientById(clientId);
+      
+      if (!client) {
+        return res.status(404).send("Client not found");
+      }
+      
+      // Check if the client belongs to the current user or if user is admin
+      if (client.userId !== req.user!._id.toString() && !req.user!.isAdmin) {
+        return res.status(403).send("Unauthorized access to this client");
+      }
+      
+      res.json(client);
+    } catch (error) {
+      console.error("Error fetching client:", error);
+      res.status(500).send("Error fetching client");
+    }
+  });
+  
+  // Update a client
+  app.put("/api/clients/:clientId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+    
+    try {
+      const clientId = req.params.clientId;
+      const client = await storage.getClientById(clientId);
+      
+      if (!client) {
+        return res.status(404).send("Client not found");
+      }
+      
+      // Check if the client belongs to the current user or if user is admin
+      if (client.userId !== req.user!._id.toString() && !req.user!.isAdmin) {
+        return res.status(403).send("Unauthorized access to this client");
+      }
+      
+      // Update the client
+      const updatedClient = await storage.updateClient(clientId, req.body);
+      
+      if (!updatedClient) {
+        return res.status(500).send("Failed to update client");
+      }
+      
+      res.json(updatedClient);
+    } catch (error) {
+      console.error("Error updating client:", error);
+      res.status(500).send("Error updating client");
+    }
+  });
+  
+  // Delete a client
+  app.delete("/api/clients/:clientId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+    
+    try {
+      const clientId = req.params.clientId;
+      const client = await storage.getClientById(clientId);
+      
+      if (!client) {
+        return res.status(404).send("Client not found");
+      }
+      
+      // Check if the client belongs to the current user or if user is admin
+      if (client.userId !== req.user!._id.toString() && !req.user!.isAdmin) {
+        return res.status(403).send("Unauthorized access to this client");
+      }
+      
+      // Delete the client
+      const success = await storage.deleteClient(clientId);
+      
+      if (!success) {
+        return res.status(500).send("Failed to delete client");
+      }
+      
+      res.status(200).json({ success: true, message: "Client deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      res.status(500).send("Error deleting client");
+    }
+  });
 
   // WebAuthn credentials endpoint
   app.get("/api/webauthn/credentials", async (req, res) => {

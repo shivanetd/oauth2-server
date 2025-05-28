@@ -28,6 +28,8 @@ export interface IStorage {
 
   // Client operations  
   createClient(client: Omit<InsertClient, "clientId" | "clientSecret">): Promise<Client>;
+  updateClient(id: string, clientData: Partial<Omit<Client, "_id" | "clientId" | "clientSecret">>): Promise<Client | undefined>;
+  deleteClient(id: string): Promise<boolean>;
   getClientById(id: string): Promise<Client | undefined>;
   getClientByClientId(clientId: string): Promise<Client | undefined>;
   listClientsByUser(userId: string): Promise<Client[]>;
@@ -103,6 +105,61 @@ export class MongoStorage implements IStorage {
   async listClientsByUser(userId: string): Promise<Client[]> {
     const clients = await db.collection('clients').find({ userId }).toArray();
     return clients as Client[];
+  }
+  
+  async updateClient(id: string, clientData: Partial<Omit<Client, "_id" | "clientId" | "clientSecret">>): Promise<Client | undefined> {
+    try {
+      const objId = new ObjectId(id);
+      
+      // Create the update object and ensure critical fields are not modified
+      const updateData: Record<string, any> = { ...clientData };
+      delete updateData._id;
+      delete updateData.clientId;
+      delete updateData.clientSecret;
+      
+      // Set update time
+      updateData.updatedAt = new Date();
+      
+      const result = await db.collection('clients').findOneAndUpdate(
+        { _id: objId },
+        { $set: updateData },
+        { returnDocument: 'after' }
+      );
+      
+      if (!result) return undefined;
+      
+      return {
+        ...result,
+        _id: objId
+      } as Client;
+    } catch (error) {
+      console.error('Error updating client:', error);
+      return undefined;
+    }
+  }
+
+  async deleteClient(id: string): Promise<boolean> {
+    try {
+      const objId = new ObjectId(id);
+      
+      // Get the client to find clientId before deletion
+      const client = await this.getClientById(id);
+      if (!client) return false;
+      
+      // Delete all auth codes related to this client
+      await db.collection('authCodes').deleteMany({ clientId: client.clientId });
+      
+      // Delete all tokens related to this client
+      await db.collection('tokens').deleteMany({ clientId: client.clientId });
+      
+      // Finally delete the client
+      const result = await db.collection('clients').deleteOne({ _id: objId });
+      
+      return result.deletedCount === 1;
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      return false;
+    }
   }
 
   async createAuthCode(codeData: InsertAuthCode): Promise<AuthCode> {
