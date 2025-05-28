@@ -4,7 +4,6 @@ import { setupAuth } from "./auth";
 import { setupOAuth } from "./oauth";
 import { storage } from "./storage";
 import { insertClientSchema } from "@shared/schema";
-import { z } from "zod";
 
 function requireAdmin(req: any, res: any, next: any) {
   if (!req.isAuthenticated() || !req.user.isAdmin) {
@@ -27,12 +26,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientData = insertClientSchema.parse(req.body);
       const client = await storage.createClient({
         ...clientData,
-        userId: req.user!._id,
+        userId: req.user!._id.toString(),
       });
 
       res.status(201).json(client);
     } catch (error) {
-      res.status(400).send(error instanceof Error ? error.message : "Invalid request");
+      res
+        .status(400)
+        .send(error instanceof Error ? error.message : "Invalid request");
     }
   });
 
@@ -42,7 +43,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).send("Authentication required");
     }
 
-    const clients = await storage.listClientsByUser(req.user!._id);
+    const clients = await storage.listClientsByUser(req.user!._id.toString());
     res.json(clients);
   });
 
