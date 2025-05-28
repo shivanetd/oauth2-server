@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupOAuth } from "./oauth";
+import { setupWebAuthn } from "./webauthn";
 import { storage } from "./storage";
 import { insertClientSchema } from "@shared/schema";
 
@@ -15,6 +16,7 @@ function requireAdmin(req: any, res: any, next: any) {
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
   setupOAuth(app);
+  setupWebAuthn(app);
 
   // Client registration endpoint
   app.post("/api/clients", async (req, res) => {
@@ -45,6 +47,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const clients = await storage.listClientsByUser(req.user!._id.toString());
     res.json(clients);
+  });
+
+  // WebAuthn credentials endpoint
+  app.get("/api/webauthn/credentials", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+
+    try {
+      const credentials = await storage.getWebAuthnCredentialsByUserId(req.user!._id.toString());
+      res.json(credentials);
+    } catch (error) {
+      console.error("Error fetching WebAuthn credentials:", error);
+      res.status(500).send("Error fetching passkeys");
+    }
   });
 
   // Admin routes

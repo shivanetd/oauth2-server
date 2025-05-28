@@ -4,8 +4,20 @@ import { ObjectId } from "mongodb";
 // Schema definitions for validation
 export const insertUserSchema = z.object({
   username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+  password: z.string().min(1, "Password is required").optional(),
   isAdmin: z.boolean().default(false),
+  challenge: z.string().optional(), // For WebAuthn registration
+});
+
+export const insertWebAuthnCredentialSchema = z.object({
+  userId: z.string(),
+  credentialID: z.string(),
+  credentialPublicKey: z.string(),
+  counter: z.number(),
+  credentialDeviceType: z.string(),
+  credentialBackedUp: z.boolean(),
+  transports: z.array(z.string()).optional(),
+  createdAt: z.date().default(() => new Date()),
 });
 
 export const insertClientSchema = z.object({
@@ -62,6 +74,9 @@ export type JwtKeys = InsertJwtKeys & { _id: ObjectId };
 
 export type InsertToken = z.infer<typeof insertTokenSchema>;
 export type Token = InsertToken & { _id: ObjectId };
+
+export type InsertWebAuthnCredential = z.infer<typeof insertWebAuthnCredentialSchema>;
+export type WebAuthnCredential = InsertWebAuthnCredential & { _id: ObjectId };
 
 // Available scopes
 export const AVAILABLE_SCOPES = ['read', 'write', 'admin'] as const;
