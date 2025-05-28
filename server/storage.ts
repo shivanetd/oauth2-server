@@ -1,9 +1,11 @@
-import { User, InsertUser, Client, AuthCode, Token } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import { users, type User, type InsertUser } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import session from "express-session";
-import crypto from "crypto";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // User operations
@@ -16,118 +18,95 @@ export interface IStorage {
   getClientById(id: number): Promise<Client | undefined>;
   getClientByClientId(clientId: string): Promise<Client | undefined>;
   listClientsByUser(userId: number): Promise<Client[]>;
-  
+
   // OAuth operations
   createAuthCode(code: Omit<AuthCode, "id">): Promise<AuthCode>;
   getAuthCodeByCode(code: string): Promise<AuthCode | undefined>;
   invalidateAuthCode(code: string): Promise<void>;
-  
+
   createToken(token: Omit<Token, "id">): Promise<Token>;
   getTokenByAccessToken(token: string): Promise<Token | undefined>;
   getTokenByRefreshToken(token: string): Promise<Token | undefined>;
-  
-  sessionStore: session.SessionStore;
+
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private clients: Map<number, Client>;
-  private authCodes: Map<string, AuthCode>;
-  private tokens: Map<string, Token>;
-  private currentId: number;
-  sessionStore: session.SessionStore;
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.clients = new Map();
-    this.authCodes = new Map();
-    this.tokens = new Map();
-    this.currentId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id, isAdmin: false };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async createClient(clientData: Omit<Client, "id" | "clientId" | "clientSecret">): Promise<Client> {
-    const id = this.currentId++;
-    const clientId = crypto.randomBytes(16).toString('hex');
-    const clientSecret = crypto.randomBytes(32).toString('hex');
-    
-    const client: Client = {
-      id,
-      clientId,
-      clientSecret,
-      ...clientData,
-      createdAt: new Date(),
-    };
-    
-    this.clients.set(id, client);
+    const [client] = await db.insert(clients).values({...clientData, createdAt: new Date(), clientId: crypto.randomBytes(16).toString('hex'), clientSecret: crypto.randomBytes(32).toString('hex')}).returning();
     return client;
   }
 
   async getClientById(id: number): Promise<Client | undefined> {
-    return this.clients.get(id);
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client;
   }
 
   async getClientByClientId(clientId: string): Promise<Client | undefined> {
-    return Array.from(this.clients.values()).find(
-      (client) => client.clientId === clientId
-    );
+    const [client] = await db.select().from(clients).where(eq(clients.clientId, clientId));
+    return client;
   }
 
   async listClientsByUser(userId: number): Promise<Client[]> {
-    return Array.from(this.clients.values()).filter(
-      (client) => client.userId === userId
-    );
+    return db.select().from(clients).where(eq(clients.userId, userId));
   }
 
   async createAuthCode(codeData: Omit<AuthCode, "id">): Promise<AuthCode> {
-    const id = this.currentId++;
-    const authCode: AuthCode = { ...codeData, id };
-    this.authCodes.set(codeData.code, authCode);
+    const [authCode] = await db.insert(authCodes).values(codeData).returning();
     return authCode;
   }
 
   async getAuthCodeByCode(code: string): Promise<AuthCode | undefined> {
-    return this.authCodes.get(code);
+    const [authCode] = await db.select().from(authCodes).where(eq(authCodes.code, code));
+    return authCode;
   }
 
   async invalidateAuthCode(code: string): Promise<void> {
-    this.authCodes.delete(code);
+    await db.delete(authCodes).where(eq(authCodes.code, code));
   }
 
   async createToken(tokenData: Omit<Token, "id">): Promise<Token> {
-    const id = this.currentId++;
-    const token: Token = { ...tokenData, id };
-    this.tokens.set(tokenData.accessToken, token);
-    this.tokens.set(tokenData.refreshToken, token);
+    const [token] = await db.insert(tokens).values(tokenData).returning();
     return token;
   }
 
   async getTokenByAccessToken(accessToken: string): Promise<Token | undefined> {
-    return this.tokens.get(accessToken);
+    const [token] = await db.select().from(tokens).where(eq(tokens.accessToken, accessToken));
+    return token;
   }
 
   async getTokenByRefreshToken(refreshToken: string): Promise<Token | undefined> {
-    return this.tokens.get(refreshToken);
+    const [token] = await db.select().from(tokens).where(eq(tokens.refreshToken, refreshToken));
+    return token;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
+
+import { Client, AuthCode, Token } from "@shared/schema";
+import crypto from "crypto";
+import { clients, authCodes, tokens } from "@shared/schema";
