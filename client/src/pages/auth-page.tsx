@@ -11,18 +11,41 @@ import { insertUserSchema } from "@shared/schema";
 import type { InsertUser } from "@shared/schema";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+function getOAuthState() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('oauth_state');
+}
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const oauthState = getOAuthState();
+
+  const { data: oauthData } = useQuery({
+    queryKey: [`/api/oauth/check-state/${oauthState}`],
+    enabled: !!oauthState,
+  });
 
   useEffect(() => {
-    if (loginMutation.data?.redirect || registerMutation.data?.redirect) {
-      window.location.href = loginMutation.data?.redirect || registerMutation.data?.redirect;
-    } else if (user) {
-      setLocation("/");
-    }
-  }, [user, loginMutation.data, registerMutation.data, setLocation]);
+    const checkOAuthCompletion = async () => {
+      if (user && oauthState) {
+        const response = await fetch(`/api/oauth/complete/${oauthState}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.redirect) {
+            window.location.href = data.redirect;
+            return;
+          }
+        }
+      } else if (user) {
+        setLocation("/");
+      }
+    };
+
+    checkOAuthCompletion();
+  }, [user, oauthState, setLocation]);
 
   return (
     <div className="min-h-screen flex">
@@ -64,8 +87,10 @@ export default function AuthPage() {
             Secure OAuth2 Authorization
           </h1>
           <p className="text-lg text-muted-foreground">
-            A complete OAuth2 server implementation supporting the authorization code flow.
-            Perfect for securing your applications with industry-standard authentication.
+            {oauthData ? 
+              "Please sign in to continue with the authorization process." :
+              "A complete OAuth2 server implementation supporting the authorization code flow."
+            }
           </p>
         </div>
       </div>

@@ -4,6 +4,15 @@ import { z } from "zod";
 import { jwtService } from "./jwt";
 import crypto from "crypto";
 
+// Store pending OAuth requests with a temporary key
+const pendingAuthorizations = new Map<string, {
+  clientId: string;
+  redirectUri: string;
+  responseType: string;
+  scope?: string;
+  state?: string;
+}>();
+
 const authorizationSchema = z.object({
   response_type: z.enum(["code", "token"]),
   client_id: z.string(),
@@ -78,9 +87,20 @@ export function setupOAuth(app: Express) {
   app.get("/oauth/authorize", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
-        // Store OAuth request parameters in session
-        req.session.returnTo = req.originalUrl;
-        return res.redirect(`/auth?return_to=${encodeURIComponent(req.url)}`);
+        // Generate a temporary state key
+        const tempState = crypto.randomBytes(16).toString('hex');
+
+        // Store the OAuth request parameters
+        pendingAuthorizations.set(tempState, {
+          clientId: req.query.client_id as string,
+          redirectUri: req.query.redirect_uri as string,
+          responseType: req.query.response_type as string,
+          scope: req.query.scope as string,
+          state: req.query.state as string,
+        });
+
+        // Redirect to login with the temporary state
+        return res.redirect(`/auth?oauth_state=${tempState}`);
       }
 
       const params = authorizationSchema.parse(req.query);
@@ -134,6 +154,44 @@ export function setupOAuth(app: Express) {
     } catch (error) {
       res.status(400).send(error instanceof Error ? error.message : "Invalid request");
     }
+  });
+
+  // Add endpoint to check stored OAuth state
+  app.get("/api/oauth/check-state/:state", (req, res) => {
+    const storedRequest = pendingAuthorizations.get(req.params.state);
+    if (!storedRequest) {
+      return res.status(404).json({ error: "No pending authorization request" });
+    }
+    res.json(storedRequest);
+  });
+
+  // Add endpoint to complete OAuth flow after authentication
+  app.get("/api/oauth/complete/:state", (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+
+    const storedRequest = pendingAuthorizations.get(req.params.state);
+    if (!storedRequest) {
+      return res.status(404).json({ error: "No pending authorization request" });
+    }
+
+    // Clean up the stored request
+    pendingAuthorizations.delete(req.params.state);
+
+    // Redirect back to the authorization endpoint with the original parameters
+    const url = new URL("/oauth/authorize", req.protocol + "://" + req.get("host"));
+    url.searchParams.set("response_type", storedRequest.responseType);
+    url.searchParams.set("client_id", storedRequest.clientId);
+    url.searchParams.set("redirect_uri", storedRequest.redirectUri);
+    if (storedRequest.scope) {
+      url.searchParams.set("scope", storedRequest.scope);
+    }
+    if (storedRequest.state) {
+      url.searchParams.set("state", storedRequest.state);
+    }
+
+    res.json({ redirect: url.toString() });
   });
 
   // Token endpoint
