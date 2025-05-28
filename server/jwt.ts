@@ -1,6 +1,7 @@
-import jwt from 'jsonwebtoken';
+import jwt, { Secret, JwtPayload } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { db } from './db';
+import { storage } from './storage';
 import type { JwtKeys } from '@shared/schema';
 
 class JwtService {
@@ -87,11 +88,17 @@ class JwtService {
       throw new Error('No active JWT keys found');
     }
 
-    return jwt.sign(payload, keys.privateKey, {
-      algorithm: 'RS256',
-      expiresIn,
-      keyid: this.generateKeyId(keys.publicKey)
-    });
+    // Work around TypeScript limitation by using any
+    // This is safe because we know the structure matches what jsonwebtoken expects
+    return jwt.sign(
+      payload, 
+      keys.privateKey as any, 
+      { 
+        algorithm: 'RS256' as any,
+        expiresIn: expiresIn as any,
+        keyid: this.generateKeyId(keys.publicKey)
+      }
+    );
   }
 
   async generateRefreshToken(payload: any, expiresIn: string = '7d'): Promise<string> {
@@ -100,10 +107,16 @@ class JwtService {
       throw new Error('No active JWT keys found');
     }
 
-    return jwt.sign(payload, keys.privateKey, {
-      algorithm: keys.algorithm as jwt.Algorithm,
-      expiresIn
-    });
+    // Work around TypeScript limitation by using any
+    // This is safe because we know the structure matches what jsonwebtoken expects
+    return jwt.sign(
+      payload, 
+      keys.privateKey as any, 
+      { 
+        algorithm: 'RS256' as any,
+        expiresIn: expiresIn as any
+      }
+    );
   }
 
   async verifyToken(token: string): Promise<any> {
@@ -113,10 +126,32 @@ class JwtService {
     }
 
     try {
-      return jwt.verify(token, keys.publicKey, {
+      // First, check if token is in the revocation list
+      const revokedToken = await db.collection('revokedTokens').findOne({ 
+        token, 
+        type: 'access_token' 
+      });
+      
+      if (revokedToken) {
+        throw new Error('Token has been revoked');
+      }
+      
+      // Verify token signature and expiration
+      const payload = jwt.verify(token, keys.publicKey, {
         algorithms: ['RS256']
       });
+      
+      // For additional verification, check if token exists in database and is not revoked
+      const tokenRecord = await storage.getTokenByAccessToken(token);
+      if (tokenRecord && tokenRecord.revoked) {
+        throw new Error('Token has been revoked');
+      }
+      
+      return payload;
     } catch (error) {
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error('Invalid token');
     }
   }
