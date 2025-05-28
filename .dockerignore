@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build files
+/build
+
+# Source control
+.git
+.gitignore
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE specific files
+.idea
+.vscode
+*.swp
+*.swo
+
+# Miscellaneous
+.DS_Store
+*.log
+*.log.*
+README.md
+LICENSE

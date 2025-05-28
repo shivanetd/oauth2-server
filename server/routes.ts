@@ -14,6 +14,14 @@ function requireAdmin(req: any, res: any, next: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for containerized environments
+  app.get('/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'ok',
+      timestamp: new Date().toISOString() 
+    });
+  });
+
   setupAuth(app);
   setupOAuth(app);
   setupWebAuthn(app);
