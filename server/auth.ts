@@ -1,5 +1,7 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GitHubStrategy } from "passport-github2";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -60,6 +62,7 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Local Strategy
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
@@ -74,6 +77,58 @@ export function setupAuth(app: Express) {
     }),
   );
 
+  // GitHub Strategy
+  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+    passport.use(new GitHubStrategy({
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/github/callback`
+    },
+    async function(accessToken, refreshToken, profile, done) {
+      try {
+        let user = await storage.getUserByUsername(`github:${profile.id}`);
+
+        if (!user) {
+          user = await storage.createUser({
+            username: `github:${profile.id}`,
+            password: await hashPassword(crypto.randomBytes(32).toString('hex')),
+            isAdmin: false
+          });
+        }
+
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    }));
+  }
+
+  // Google Strategy
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/google/callback`
+    },
+    async function(accessToken, refreshToken, profile, done) {
+      try {
+        let user = await storage.getUserByUsername(`google:${profile.id}`);
+
+        if (!user) {
+          user = await storage.createUser({
+            username: `google:${profile.id}`,
+            password: await hashPassword(crypto.randomBytes(32).toString('hex')),
+            isAdmin: false
+          });
+        }
+
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    }));
+  }
+
   passport.serializeUser((user, done) => {
     done(null, (user as SelectUser)._id);
   });
@@ -87,6 +142,34 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Social auth routes
+  app.get('/api/auth/github',
+    passport.authenticate('github', { scope: [ 'user:email' ] })
+  );
+
+  app.get('/api/auth/github/callback',
+    passport.authenticate('github', { failureRedirect: '/auth' }),
+    function(req, res) {
+      const returnTo = req.session.returnTo;
+      delete req.session.returnTo;
+      res.redirect(returnTo || '/');
+    }
+  );
+
+  app.get('/api/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'] })
+  );
+
+  app.get('/api/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/auth' }),
+    function(req, res) {
+      const returnTo = req.session.returnTo;
+      delete req.session.returnTo;
+      res.redirect(returnTo || '/');
+    }
+  );
+
+  // Regular auth routes
   app.post("/api/register", async (req, res, next) => {
     try {
       const existingUser = await storage.getUserByUsername(req.body.username);
