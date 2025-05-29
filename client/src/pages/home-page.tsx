@@ -10,8 +10,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertClientSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Client, InsertClient, WebAuthnCredential } from "@shared/schema";
-import { Loader2, Fingerprint, KeyRound, ShieldAlert } from "lucide-react";
+import { Loader2, Fingerprint, KeyRound, ShieldAlert, User, Settings, Lock, Mail, Calendar, Globe } from "lucide-react";
 import { Link } from "wouter";
+import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const AVAILABLE_SCOPES = ['read', 'write', 'admin']; // Add this line to define available scopes
 
@@ -76,6 +80,23 @@ export default function HomePage() {
       )}
 
       <div className="grid gap-8">
+        {/* Profile Management Section - Only for non-admin users */}
+        {!user.isAdmin && (
+          <section>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-semibold">Profile Management</h2>
+                <p className="text-muted-foreground text-sm sm:text-base">Manage your account settings and personal information</p>
+              </div>
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-2">
+              <ProfileSettingsCard user={user} />
+              <SecuritySettingsCard user={user} />
+            </div>
+          </section>
+        )}
+
         {/* Passkey Section */}
         <section>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
@@ -318,5 +339,276 @@ function RegisterClientDialog() {
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ProfileSettingsCard({ user }: { user: any }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [profileData, setProfileData] = useState({
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    preferredLanguage: user.preferredLanguage || 'en',
+    timezone: user.timezone || 'UTC',
+    theme: user.theme || 'system'
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("PUT", "/api/user/profile", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      setIsEditing(false);
+    },
+    onError: (error: Error) => {
+      console.error("Profile update failed:", error);
+    },
+  });
+
+  const handleSave = () => {
+    updateProfileMutation.mutate(profileData);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <User className="h-5 w-5" />
+          Personal Information
+        </CardTitle>
+        <CardDescription>
+          Update your personal details and preferences
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First Name</Label>
+            {isEditing ? (
+              <Input
+                id="firstName"
+                value={profileData.firstName}
+                onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                placeholder="Enter first name"
+              />
+            ) : (
+              <div className="p-2 bg-muted rounded text-sm">
+                {profileData.firstName || 'Not set'}
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">Last Name</Label>
+            {isEditing ? (
+              <Input
+                id="lastName"
+                value={profileData.lastName}
+                onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                placeholder="Enter last name"
+              />
+            ) : (
+              <div className="p-2 bg-muted rounded text-sm">
+                {profileData.lastName || 'Not set'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email Address</Label>
+          {isEditing ? (
+            <Input
+              id="email"
+              type="email"
+              value={profileData.email}
+              onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+              placeholder="Enter email address"
+            />
+          ) : (
+            <div className="p-2 bg-muted rounded text-sm flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              {profileData.email || 'Not set'}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          {isEditing ? (
+            <Input
+              id="phone"
+              value={profileData.phone}
+              onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+              placeholder="Enter phone number"
+            />
+          ) : (
+            <div className="p-2 bg-muted rounded text-sm">
+              {profileData.phone || 'Not set'}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Language</Label>
+            {isEditing ? (
+              <Select value={profileData.preferredLanguage} onValueChange={(value) => setProfileData({ ...profileData, preferredLanguage: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="de">German</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="p-2 bg-muted rounded text-sm flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                {profileData.preferredLanguage === 'en' ? 'English' : 
+                 profileData.preferredLanguage === 'es' ? 'Spanish' :
+                 profileData.preferredLanguage === 'fr' ? 'French' :
+                 profileData.preferredLanguage === 'de' ? 'German' : profileData.preferredLanguage}
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Theme</Label>
+            {isEditing ? (
+              <Select value={profileData.theme} onValueChange={(value) => setProfileData({ ...profileData, theme: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="p-2 bg-muted rounded text-sm">
+                {profileData.theme.charAt(0).toUpperCase() + profileData.theme.slice(1)}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        {isEditing ? (
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={updateProfileMutation.isPending} size="sm">
+              {updateProfileMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+            <Button onClick={() => setIsEditing(false)} variant="outline" size="sm">
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button onClick={() => setIsEditing(true)} variant="outline" size="sm">
+            <Settings className="mr-2 h-4 w-4" />
+            Edit Profile
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}
+
+function SecuritySettingsCard({ user }: { user: any }) {
+  const [securitySettings, setSecuritySettings] = useState({
+    mfaEnabled: user.mfaEnabled || false,
+    loginNotifications: user.loginNotifications || true,
+    securityAlerts: user.securityAlerts || true
+  });
+
+  const updateSecurityMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("PUT", "/api/user/security", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+    onError: (error: Error) => {
+      console.error("Security update failed:", error);
+    },
+  });
+
+  const handleSecurityUpdate = (key: string, value: boolean) => {
+    const updatedSettings = { ...securitySettings, [key]: value };
+    setSecuritySettings(updatedSettings);
+    updateSecurityMutation.mutate(updatedSettings);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lock className="h-5 w-5" />
+          Security Settings
+        </CardTitle>
+        <CardDescription>
+          Manage your account security and notification preferences
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="text-base">Two-Factor Authentication</Label>
+            <div className="text-sm text-muted-foreground">
+              Add an extra layer of security to your account
+            </div>
+          </div>
+          <Switch
+            checked={securitySettings.mfaEnabled}
+            onCheckedChange={(checked) => handleSecurityUpdate('mfaEnabled', checked)}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="text-base">Login Notifications</Label>
+            <div className="text-sm text-muted-foreground">
+              Get notified when someone signs into your account
+            </div>
+          </div>
+          <Switch
+            checked={securitySettings.loginNotifications}
+            onCheckedChange={(checked) => handleSecurityUpdate('loginNotifications', checked)}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="text-base">Security Alerts</Label>
+            <div className="text-sm text-muted-foreground">
+              Receive alerts about suspicious account activity
+            </div>
+          </div>
+          <Switch
+            checked={securitySettings.securityAlerts}
+            onCheckedChange={(checked) => handleSecurityUpdate('securityAlerts', checked)}
+          />
+        </div>
+
+        <div className="pt-4 border-t">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            Account created: {new Date(user.createdAt).toLocaleDateString()}
+          </div>
+          {user.lastLogin && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+              <Settings className="h-4 w-4" />
+              Last login: {new Date(user.lastLogin).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
