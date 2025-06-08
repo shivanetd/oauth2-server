@@ -299,6 +299,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Promote current user to super admin (development endpoint)
+  app.post("/api/admin/promote-super-admin", requireAdmin, async (req, res) => {
+    try {
+      const userId = req.user!._id.toString();
+      const updatedUser = await storage.updateUser(userId, { isSuperAdmin: true });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({ message: "Successfully promoted to super admin", user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to promote user" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

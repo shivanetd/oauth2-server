@@ -1,5 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,18 @@ export default function AdminPage() {
     queryKey: ["/api/admin/clients"],
   });
 
+  const promoteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/promote-super-admin");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      // Refresh the page to update the UI
+      window.location.reload();
+    },
+  });
+
   if (!user?.isAdmin) {
     setLocation("/");
     return null;
@@ -37,12 +50,23 @@ export default function AdminPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
         <div className="flex gap-2 self-start">
-          {user?.isSuperAdmin && (
+          {user?.isSuperAdmin ? (
             <Button asChild size="sm" className="sm:size-default">
               <Link to="/multi-tenant">
                 <Building className="h-4 w-4 mr-2" />
                 Multi-Tenant Management
               </Link>
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => promoteMutation.mutate()} 
+              disabled={promoteMutation.isPending}
+              size="sm" 
+              className="sm:size-default"
+            >
+              {promoteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <ShieldAlert className="h-4 w-4 mr-2" />
+              Become Super Admin
             </Button>
           )}
           <Button asChild variant="outline" size="sm" className="sm:size-default">
