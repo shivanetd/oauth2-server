@@ -145,17 +145,22 @@ function AuthForm({
   isLoading 
 }: { 
   mode: "login" | "register";
-  onSubmit: (data: InsertUser) => void;
+  onSubmit: (data: any) => void;
   isLoading: boolean;
 }) {
   const { passkeyLoginMutation, registerPasskeyMutation, user } = useAuth();
   const [usernameForPasskey, setUsernameForPasskey] = useState<string>("");
   
-  const form = useForm<InsertUser>({
-    resolver: zodResolver(insertUserSchema),
+  // Different schemas for login vs register
+  const loginSchema = insertUserSchema.pick({ username: true, password: true });
+  const schema = mode === "login" ? loginSchema : insertUserSchema;
+  
+  const form = useForm({
+    resolver: zodResolver(schema),
     defaultValues: {
       username: "",
       password: "",
+      ...(mode === "register" && { email: "" }),
     },
   });
   
@@ -220,6 +225,22 @@ function AuthForm({
               </FormItem>
             )}
           />
+
+          {mode === "register" && (
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} autoComplete="email" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
