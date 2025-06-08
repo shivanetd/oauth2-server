@@ -30,7 +30,7 @@ import session from "express-session";
 import crypto, { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { User as SelectUser, insertUserSchema } from "@shared/schema";
 import MongoStore from "connect-mongo";
 import CookieParser from "cookie-parser";
 import BodyParser from "body-parser";

@@ -13,6 +13,7 @@ import ScopeDemoPage from "@/pages/scope-demo-page";
 import UserTrendsPage from "@/pages/user-trends-page";
 import EnterpriseDashboard from "@/pages/enterprise-dashboard";
 import MultiTenantDashboard from "@/pages/multi-tenant-dashboard";
+import TenantDemo from "@/pages/tenant-demo";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -41,6 +42,9 @@ function Router() {
       </Route>
       <Route path="/multi-tenant">
         <ProtectedRoute path="/multi-tenant" component={MultiTenantDashboard} />
+      </Route>
+      <Route path="/tenant-demo">
+        <ProtectedRoute path="/tenant-demo" component={TenantDemo} />
       </Route>
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
