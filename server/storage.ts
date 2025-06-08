@@ -12,13 +12,22 @@ import {
 import { ObjectId } from "mongodb";
 
 export interface IStorage {
-  // User operations
+  // Tenant operations
+  getTenant(id: string): Promise<Tenant | undefined>;
+  getTenantByDomain(domain: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(tenantId: string, tenantData: Partial<Omit<Tenant, '_id'>>): Promise<Tenant | undefined>;
+  deleteTenant(tenantId: string): Promise<boolean>;
+  listTenants(): Promise<Tenant[]>;
+
+  // User operations (now tenant-scoped)
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByUsername(username: string, tenantId?: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(userId: string, userData: Partial<Omit<User, '_id'>>): Promise<User | undefined>;
   deleteUser(userId: string): Promise<boolean>;
   updateUserChallenge(userId: string, challenge: string): Promise<void>;
+  listUsersByTenant(tenantId: string): Promise<User[]>;
 
   // WebAuthn operations
   createWebAuthnCredential(credential: InsertWebAuthnCredential): Promise<WebAuthnCredential>;
@@ -26,13 +35,14 @@ export interface IStorage {
   getWebAuthnCredentialByCredentialId(credentialId: string): Promise<WebAuthnCredential | undefined>;
   updateWebAuthnCredentialCounter(credentialId: string, newCounter: number): Promise<void>;
 
-  // Client operations  
+  // Client operations (now tenant-scoped)
   createClient(client: Omit<InsertClient, "clientId" | "clientSecret">): Promise<Client>;
   updateClient(id: string, clientData: Partial<Omit<Client, "_id" | "clientId" | "clientSecret">>): Promise<Client | undefined>;
   deleteClient(id: string): Promise<boolean>;
   getClientById(id: string): Promise<Client | undefined>;
   getClientByClientId(clientId: string): Promise<Client | undefined>;
   listClientsByUser(userId: string): Promise<Client[]>;
+  listClientsByTenant(tenantId: string): Promise<Client[]>;
 
   // OAuth operations
   createAuthCode(code: InsertAuthCode): Promise<AuthCode>;

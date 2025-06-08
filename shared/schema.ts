@@ -17,13 +17,60 @@ import { ObjectId } from "mongodb";
  */
 
 /**
+ * Tenant Schema Definition
+ * 
+ * Defines the organization/tenant structure for multi-tenancy support.
+ * Each tenant represents an isolated organization with their own users,
+ * clients, and settings while sharing the same infrastructure.
+ */
+export const insertTenantSchema = z.object({
+  name: z.string().min(1, "Organization name is required"),
+  domain: z.string().min(1, "Domain is required").regex(/^[a-zA-Z0-9-]+$/, "Domain must contain only letters, numbers, and hyphens"),
+  displayName: z.string().optional(),
+  description: z.string().optional(),
+  
+  // Tenant settings
+  settings: z.object({
+    allowUserRegistration: z.boolean().default(true),
+    requireEmailVerification: z.boolean().default(false),
+    sessionTimeoutMinutes: z.number().min(5).max(1440).default(60),
+    maxUsersAllowed: z.number().min(1).default(1000),
+    enableMFA: z.boolean().default(true),
+    enablePasskeys: z.boolean().default(true),
+    
+    // Branding
+    logoUrl: z.string().url().optional(),
+    primaryColor: z.string().regex(/^#[0-9A-F]{6}$/i).default("#000000"),
+    companyUrl: z.string().url().optional(),
+  }).default({}),
+  
+  // Contact information
+  adminEmail: z.string().email(),
+  supportEmail: z.string().email().optional(),
+  
+  // Status
+  isActive: z.boolean().default(true),
+  isPremium: z.boolean().default(false),
+  
+  // Billing (for SaaS)
+  billingPlan: z.enum(["free", "starter", "professional", "enterprise"]).default("free"),
+  billingEmail: z.string().email().optional(),
+  
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date()),
+});
+
+/**
  * User Schema Definition
  * 
+ * Enhanced with tenant isolation - all users belong to a specific tenant.
  * Defines the complete user profile structure with comprehensive attributes
  * for enterprise-grade user management including personal information,
  * security settings, preferences, and organizational data.
  */
 export const insertUserSchema = z.object({
+  // Tenant association - REQUIRED for multi-tenancy
+  tenantId: z.string().min(1, "Tenant ID is required"),
   // === Core Authentication Fields ===
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required").optional(),
@@ -76,11 +123,14 @@ export const insertWebAuthnCredentialSchema = z.object({
 /**
  * OAuth2 Client Application Schema
  * 
+ * Enhanced with tenant isolation - all clients belong to a specific tenant.
  * Defines the structure for OAuth2 client applications that can request
  * authorization to access user data. Each client has specific permissions
  * (scopes) and trusted redirect URIs for security.
  */
 export const insertClientSchema = z.object({
+  // Tenant association - REQUIRED for multi-tenancy
+  tenantId: z.string().min(1, "Tenant ID is required"),
   name: z.string().min(1, "Name is required"), // Human-readable client name
   description: z.string().optional(), // Optional description of the client application
   redirectUris: z.array(z.string().url("Invalid redirect URI")), // Allowed callback URLs after authorization
@@ -91,11 +141,14 @@ export const insertClientSchema = z.object({
 /**
  * OAuth2 Authorization Code Schema
  * 
+ * Enhanced with tenant isolation for multi-tenant OAuth flows.
  * Represents temporary authorization codes issued during the OAuth2 authorization
  * code flow. These codes are exchanged for access tokens and have short lifespans
  * for security purposes.
  */
 export const insertAuthCodeSchema = z.object({
+  // Tenant association - REQUIRED for multi-tenancy
+  tenantId: z.string().min(1, "Tenant ID is required"),
   code: z.string(), // The authorization code value
   clientId: z.string(), // Client that requested this authorization
   userId: z.string(), // User who granted authorization
@@ -121,11 +174,14 @@ export const insertJwtKeysSchema = z.object({
 /**
  * OAuth2 Token Schema
  * 
+ * Enhanced with tenant isolation for multi-tenant token management.
  * Represents issued access and refresh token pairs. Access tokens grant
  * API access, while refresh tokens allow obtaining new access tokens
  * without re-authentication.
  */
 export const insertTokenSchema = z.object({
+  // Tenant association - REQUIRED for multi-tenancy
+  tenantId: z.string().min(1, "Tenant ID is required"),
   accessToken: z.string(), // The access token (JWT format)
   refreshToken: z.string(), // The refresh token (opaque string)
   clientId: z.string(), // Client that owns this token
@@ -146,6 +202,15 @@ export const insertTokenSchema = z.object({
  */
 
 /** User types for database operations */
+/** Tenant types */
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type Tenant = InsertTenant & {
+  _id: ObjectId;
+  domain: string; // Unique domain identifier for the tenant
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = InsertUser & { _id: ObjectId };
 
