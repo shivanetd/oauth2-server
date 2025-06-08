@@ -175,8 +175,12 @@ export class MongoStorage implements IStorage {
     return user as User | undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const user = await db.collection('users').findOne({ username });
+  async getUserByUsername(username: string, tenantId?: string): Promise<User | undefined> {
+    const query: any = { username };
+    if (tenantId) {
+      query.tenantId = tenantId;
+    }
+    const user = await db.collection('users').findOne(query);
     return user as User | undefined;
   }
 

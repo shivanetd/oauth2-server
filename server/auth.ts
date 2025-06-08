@@ -120,7 +120,7 @@ export function setupAuth(app: Express) {
         let user = await storage.getUserByUsername(`github:${profile.id}`);
 
         if (!user) {
-          user = await storage.createUser({
+          const userData = insertUserSchema.parse({
             tenantId: "system", // OAuth users go to system tenant by default
             username: `github:${profile.id}`,
             password: await hashPassword(randomBytes(32).toString('hex')),
@@ -129,6 +129,7 @@ export function setupAuth(app: Express) {
             lastName: profile.displayName?.split(' ').slice(1).join(' '),
             isAdmin: false
           });
+          user = await storage.createUser(userData);
         }
 
         return done(null, user);
@@ -151,8 +152,12 @@ export function setupAuth(app: Express) {
 
         if (!user) {
           user = await storage.createUser({
+            tenantId: "system", // OAuth users go to system tenant by default
             username: `google:${profile.id}`,
             password: await hashPassword(randomBytes(32).toString('hex')),
+            email: profile.emails?.[0]?.value,
+            firstName: profile.name?.givenName,
+            lastName: profile.name?.familyName,
             isAdmin: false
           });
         }
@@ -225,11 +230,13 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Username already exists in this tenant");
       }
 
-      const user = await storage.createUser({
+      const userData = insertUserSchema.parse({
         ...req.body,
         tenantId,
         password: await hashPassword(req.body.password),
       });
+      
+      const user = await storage.createUser(userData);
 
       req.login(user, (err) => {
         if (err) return next(err);

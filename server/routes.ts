@@ -255,6 +255,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public tenant listing for registration
+  app.get("/api/public/tenants", async (req, res) => {
+    try {
+      const tenants = await storage.listTenants();
+      // Only return basic tenant info for public registration
+      const publicTenants = tenants
+        .filter(t => t.settings?.allowUserRegistration !== false)
+        .map(tenant => ({
+          _id: tenant._id,
+          name: tenant.name,
+          displayName: tenant.displayName,
+          domain: tenant.domain,
+          description: tenant.description
+        }));
+      res.json(publicTenants);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tenants" });
+    }
+  });
+
   // Super Admin routes - require super admin authentication
   function requireSuperAdmin(req: any, res: any, next: any) {
     if (!req.isAuthenticated() || !req.user?.isSuperAdmin) {
