@@ -14,6 +14,7 @@ import UserTrendsPage from "@/pages/user-trends-page";
 import EnterpriseDashboard from "@/pages/enterprise-dashboard";
 import MultiTenantDashboard from "@/pages/multi-tenant-dashboard";
 import TenantDemo from "@/pages/tenant-demo";
+import TenantMapping from "@/pages/tenant-mapping";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -45,6 +46,9 @@ function Router() {
       </Route>
       <Route path="/tenant-demo">
         <ProtectedRoute path="/tenant-demo" component={TenantDemo} />
+      </Route>
+      <Route path="/tenant-mapping">
+        <ProtectedRoute path="/tenant-mapping" component={TenantMapping} />
       </Route>
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
