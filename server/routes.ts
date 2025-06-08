@@ -33,7 +33,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const clientData = insertClientSchema.parse(req.body);
+      // Ensure client is created within the user's tenant
+      const tenantId = req.user!.tenantId || "system";
+      
+      const clientData = insertClientSchema.parse({
+        ...req.body,
+        tenantId: tenantId
+      });
+      
       const client = await storage.createClient({
         ...clientData,
         userId: req.user!._id.toString(),

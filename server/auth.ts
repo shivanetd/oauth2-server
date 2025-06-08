@@ -121,8 +121,12 @@ export function setupAuth(app: Express) {
 
         if (!user) {
           user = await storage.createUser({
+            tenantId: "system", // OAuth users go to system tenant by default
             username: `github:${profile.id}`,
             password: await hashPassword(randomBytes(32).toString('hex')),
+            email: profile.emails?.[0]?.value,
+            firstName: profile.displayName?.split(' ')[0],
+            lastName: profile.displayName?.split(' ').slice(1).join(' '),
             isAdmin: false
           });
         }
@@ -203,13 +207,27 @@ export function setupAuth(app: Express) {
   // Regular auth routes
   app.post("/api/register", async (req, res, next) => {
     try {
-      const existingUser = await storage.getUserByUsername(req.body.username);
+      // For multi-tenant registration, require tenant context
+      let tenantId = req.body.tenantId;
+      
+      // If no tenantId provided, check if we have tenant context from middleware
+      if (!tenantId && req.tenantId) {
+        tenantId = req.tenantId;
+      }
+      
+      // For development/testing, allow creating users without tenant (they'll be super admins)
+      if (!tenantId) {
+        tenantId = "system"; // System tenant for super admins
+      }
+
+      const existingUser = await storage.getUserByUsername(req.body.username, tenantId);
       if (existingUser) {
-        return res.status(400).send("Username already exists");
+        return res.status(400).send("Username already exists in this tenant");
       }
 
       const user = await storage.createUser({
         ...req.body,
+        tenantId,
         password: await hashPassword(req.body.password),
       });
 

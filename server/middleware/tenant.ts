@@ -1,246 +1,124 @@
-/**
- * Multi-Tenant Middleware
- * 
- * Provides tenant isolation and context management for multi-tenant OAuth2 server.
- * Handles tenant resolution, validation, and enforces data isolation.
- */
+import { Request, Response, NextFunction } from 'express';
+import { storage } from '../storage';
 
-import { Request, Response, NextFunction } from "express";
-import { storage } from "../storage";
-import type { Tenant } from "@shared/schema";
-
-// Extend Express Request to include tenant context
 declare global {
   namespace Express {
     interface Request {
-      tenant?: Tenant;
+      tenant?: any;
       tenantId?: string;
     }
   }
 }
 
 /**
- * Tenant resolution strategies
+ * Tenant Resolution Middleware
+ * 
+ * Resolves the current tenant context from various sources:
+ * 1. Subdomain (tenant.yourdomain.com)
+ * 2. X-Tenant-Domain header
+ * 3. Query parameter (?tenant=domain)
+ * 4. Path parameter (/tenant/domain/...)
  */
-export enum TenantResolutionStrategy {
-  SUBDOMAIN = "subdomain",  // tenant.example.com
-  HEADER = "header",        // X-Tenant-Domain header
-  PATH = "path",           // /tenant/domain/...
-  QUERY = "query"          // ?tenant=domain
-}
+export async function resolveTenant(req: Request, res: Response, next: NextFunction) {
+  let tenantDomain: string | null = null;
 
-interface TenantMiddlewareConfig {
-  strategy: TenantResolutionStrategy;
-  headerName?: string;
-  queryParam?: string;
-  pathPrefix?: string;
-  defaultTenant?: string;
-  requireTenant?: boolean;
-}
+  // Strategy 1: Subdomain resolution
+  const host = req.headers.host || '';
+  const subdomain = host.split('.')[0];
+  if (subdomain && subdomain !== 'localhost' && subdomain !== '127' && !subdomain.includes(':')) {
+    tenantDomain = subdomain;
+  }
 
-/**
- * Create tenant resolution middleware
- */
-export function createTenantMiddleware(config: TenantMiddlewareConfig) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const tenantDomain = resolveTenantDomain(req, config);
-      
-      if (!tenantDomain) {
-        if (config.requireTenant) {
-          return res.status(400).json({ 
-            error: "Tenant not specified",
-            message: "This endpoint requires a tenant to be specified"
-          });
-        }
-        return next();
-      }
+  // Strategy 2: Header-based resolution
+  if (!tenantDomain && req.headers['x-tenant-domain']) {
+    tenantDomain = req.headers['x-tenant-domain'] as string;
+  }
 
-      // Fetch tenant from database
-      const tenant = await storage.getTenantByDomain(tenantDomain);
-      
-      if (!tenant) {
-        return res.status(404).json({ 
-          error: "Tenant not found",
-          message: `No tenant found for domain: ${tenantDomain}`
-        });
-      }
+  // Strategy 3: Query parameter resolution
+  if (!tenantDomain && req.query.tenant) {
+    tenantDomain = req.query.tenant as string;
+  }
 
-      if (!tenant.isActive) {
-        return res.status(403).json({ 
-          error: "Tenant inactive",
-          message: "This organization is currently inactive"
-        });
-      }
-
-      // Add tenant context to request
-      req.tenant = tenant;
-      req.tenantId = tenant._id.toString();
-      
-      next();
-    } catch (error) {
-      console.error("Tenant middleware error:", error);
-      res.status(500).json({ 
-        error: "Internal server error",
-        message: "Failed to resolve tenant"
-      });
+  // Strategy 4: Path-based resolution (/tenant/:domain/...)
+  if (!tenantDomain && req.path.startsWith('/tenant/')) {
+    const pathParts = req.path.split('/');
+    if (pathParts.length >= 3) {
+      tenantDomain = pathParts[2];
     }
-  };
-}
+  }
 
-/**
- * Resolve tenant domain from request based on strategy
- */
-function resolveTenantDomain(req: Request, config: TenantMiddlewareConfig): string | null {
-  switch (config.strategy) {
-    case TenantResolutionStrategy.SUBDOMAIN:
-      return extractSubdomain(req.get('host') || '');
-      
-    case TenantResolutionStrategy.HEADER:
-      return req.get(config.headerName || 'X-Tenant-Domain') || null;
-      
-    case TenantResolutionStrategy.PATH:
-      const prefix = config.pathPrefix || '/tenant/';
-      if (req.path.startsWith(prefix)) {
-        const segments = req.path.slice(prefix.length).split('/');
-        return segments[0] || null;
+  // If we found a tenant domain, resolve the tenant
+  if (tenantDomain) {
+    try {
+      const tenant = await storage.getTenantByDomain(tenantDomain);
+      if (tenant) {
+        req.tenant = tenant;
+        req.tenantId = tenant._id.toString();
+      } else {
+        // Tenant domain provided but not found
+        return res.status(404).json({ 
+          error: 'Tenant not found',
+          domain: tenantDomain 
+        });
       }
-      return null;
-      
-    case TenantResolutionStrategy.QUERY:
-      return req.query[config.queryParam || 'tenant'] as string || null;
-      
-    default:
-      return config.defaultTenant || null;
+    } catch (error) {
+      console.error('Error resolving tenant:', error);
+      return res.status(500).json({ error: 'Failed to resolve tenant' });
+    }
   }
+
+  next();
 }
 
 /**
- * Extract subdomain from host header
- */
-function extractSubdomain(host: string): string | null {
-  const parts = host.split('.');
-  if (parts.length >= 3) {
-    return parts[0];
-  }
-  return null;
-}
-
-/**
- * Middleware to require tenant context
+ * Require Tenant Middleware
+ * 
+ * Ensures that a tenant context is available for the request.
+ * Must be used after resolveTenant middleware.
  */
 export function requireTenant(req: Request, res: Response, next: NextFunction) {
   if (!req.tenant || !req.tenantId) {
     return res.status(400).json({ 
-      error: "Tenant required",
-      message: "This operation requires a tenant context"
+      error: 'Tenant context required',
+      message: 'This endpoint requires a tenant context. Please specify a tenant via subdomain, header, or query parameter.'
     });
   }
   next();
 }
 
 /**
- * Middleware to enforce tenant isolation in database queries
+ * Optional Tenant Middleware
+ * 
+ * Allows requests to proceed with or without tenant context.
+ * Useful for endpoints that can work in both single-tenant and multi-tenant modes.
  */
-export function enforceTenantIsolation(req: Request, res: Response, next: NextFunction) {
-  if (!req.tenantId) {
-    return res.status(400).json({ 
-      error: "Tenant isolation required",
-      message: "All operations must be scoped to a tenant"
-    });
-  }
-  
-  // Store original query/body to add tenant filters
-  const originalBody = req.body;
-  const originalQuery = req.query;
-  
-  // Add tenantId to request body for POST/PUT operations
-  if (req.method === 'POST' || req.method === 'PUT') {
-    req.body = {
-      ...originalBody,
-      tenantId: req.tenantId
-    };
-  }
-  
-  // Add tenant filter to query operations
-  req.query = {
-    ...originalQuery,
-    tenantId: req.tenantId
-  };
-  
+export function optionalTenant(req: Request, res: Response, next: NextFunction) {
+  // This middleware just passes through after tenant resolution
+  // The tenant context is available if resolved, but not required
   next();
 }
 
 /**
- * Super admin middleware - bypasses tenant isolation
+ * Tenant-Scoped Authentication Check
+ * 
+ * Ensures that authenticated users belong to the current tenant context.
  */
-export function requireSuperAdmin(req: Request, res: Response, next: NextFunction) {
+export function requireTenantAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Authentication required" });
+    return res.status(401).json({ error: 'Authentication required' });
   }
-  
-  const user = req.user as any;
-  if (!user.isSuperAdmin) {
-    return res.status(403).json({ 
-      error: "Super admin access required",
-      message: "This operation requires super admin privileges"
-    });
-  }
-  
-  next();
-}
 
-/**
- * Tenant admin middleware - requires admin within tenant context
- */
-export function requireTenantAdmin(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  
   if (!req.tenant || !req.tenantId) {
-    return res.status(400).json({ error: "Tenant context required" });
+    return res.status(400).json({ error: 'Tenant context required' });
   }
-  
-  const user = req.user as any;
-  
-  // Super admins can access any tenant
-  if (user.isSuperAdmin) {
-    return next();
-  }
-  
-  // Check if user belongs to this tenant and has admin rights
-  if (user.tenantId !== req.tenantId || !user.isAdmin) {
+
+  // Check if user belongs to the current tenant
+  if (req.user && req.user.tenantId !== req.tenantId) {
     return res.status(403).json({ 
-      error: "Tenant admin access required",
-      message: "You must be an admin of this organization"
+      error: 'Access denied',
+      message: 'User does not belong to this tenant'
     });
   }
-  
+
   next();
 }
-
-/**
- * Default tenant middleware configurations
- */
-export const tenantConfigs = {
-  // For API routes - use header-based tenant resolution
-  api: {
-    strategy: TenantResolutionStrategy.HEADER,
-    headerName: 'X-Tenant-Domain',
-    requireTenant: true
-  },
-  
-  // For OAuth flows - use subdomain resolution
-  oauth: {
-    strategy: TenantResolutionStrategy.SUBDOMAIN,
-    requireTenant: true
-  },
-  
-  // For admin routes - flexible resolution
-  admin: {
-    strategy: TenantResolutionStrategy.HEADER,
-    headerName: 'X-Tenant-Domain',
-    requireTenant: false
-  }
-};
