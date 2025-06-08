@@ -248,6 +248,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Super Admin routes - require super admin authentication
+  function requireSuperAdmin(req: any, res: any, next: any) {
+    if (!req.isAuthenticated() || !req.user?.isSuperAdmin) {
+      return res.status(403).json({ error: "Super admin access required" });
+    }
+    next();
+  }
+
+  app.get("/api/super-admin/tenants", requireSuperAdmin, async (req, res) => {
+    try {
+      const tenants = await storage.listTenants();
+      // Add user count for each tenant
+      const tenantsWithCounts = await Promise.all(tenants.map(async (tenant) => {
+        const users = await storage.listUsersByTenant(tenant._id.toString());
+        return {
+          ...tenant,
+          userCount: users.length,
+          isActive: true, // Default to active
+          isPremium: tenant.billingPlan !== 'free'
+        };
+      }));
+      res.json(tenantsWithCounts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tenants" });
+    }
+  });
+
+  app.post("/api/super-admin/tenants", requireSuperAdmin, async (req, res) => {
+    try {
+      const tenant = await storage.createTenant(req.body);
+      res.status(201).json(tenant);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create tenant" });
+    }
+  });
+
+  app.get("/api/super-admin/stats", requireSuperAdmin, async (req, res) => {
+    try {
+      const users = await storage.listUsers();
+      const clients = await storage.listAllClients();
+      
+      res.json({
+        totalUsers: users.length,
+        totalClients: clients.length,
+        totalTenants: (await storage.listTenants()).length
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

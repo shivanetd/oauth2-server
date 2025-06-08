@@ -77,6 +77,99 @@ export class MongoStorage implements IStorage {
     });
   }
 
+  // Tenant operations
+  async getTenant(id: string): Promise<Tenant | undefined> {
+    try {
+      const tenant = await db.collection("tenants").findOne({ _id: new ObjectId(id) });
+      return tenant as Tenant | undefined;
+    } catch (error) {
+      console.error("Error getting tenant:", error);
+      return undefined;
+    }
+  }
+
+  async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
+    try {
+      const tenant = await db.collection("tenants").findOne({ domain });
+      return tenant as Tenant | undefined;
+    } catch (error) {
+      console.error("Error getting tenant by domain:", error);
+      return undefined;
+    }
+  }
+
+  async createTenant(tenantData: InsertTenant): Promise<Tenant> {
+    const tenant = {
+      ...tenantData,
+      _id: new ObjectId(),
+      domain: tenantData.domain,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    await db.collection("tenants").insertOne(tenant);
+    return tenant as Tenant;
+  }
+
+  async updateTenant(tenantId: string, tenantData: Partial<Omit<Tenant, '_id'>>): Promise<Tenant | undefined> {
+    try {
+      const result = await db.collection("tenants").findOneAndUpdate(
+        { _id: new ObjectId(tenantId) },
+        { 
+          $set: { 
+            ...tenantData, 
+            updatedAt: new Date() 
+          } 
+        },
+        { returnDocument: "after" }
+      );
+      return result as Tenant | undefined;
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      return undefined;
+    }
+  }
+
+  async deleteTenant(tenantId: string): Promise<boolean> {
+    try {
+      const result = await db.collection("tenants").deleteOne({ _id: new ObjectId(tenantId) });
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error("Error deleting tenant:", error);
+      return false;
+    }
+  }
+
+  async listTenants(): Promise<Tenant[]> {
+    try {
+      const tenants = await db.collection("tenants").find({}).toArray();
+      return tenants as Tenant[];
+    } catch (error) {
+      console.error("Error listing tenants:", error);
+      return [];
+    }
+  }
+
+  async listUsersByTenant(tenantId: string): Promise<User[]> {
+    try {
+      const users = await db.collection("users").find({ tenantId }).toArray();
+      return users as User[];
+    } catch (error) {
+      console.error("Error listing users by tenant:", error);
+      return [];
+    }
+  }
+
+  async listClientsByTenant(tenantId: string): Promise<Client[]> {
+    try {
+      const clients = await db.collection("clients").find({ tenantId }).toArray();
+      return clients as Client[];
+    } catch (error) {
+      console.error("Error listing clients by tenant:", error);
+      return [];
+    }
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const user = await db.collection('users').findOne({ _id: new ObjectId(id) });
     return user as User | undefined;

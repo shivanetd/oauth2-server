@@ -83,6 +83,7 @@ export const insertUserSchema = z.object({
   
   // === Account Management ===
   isAdmin: z.boolean().default(false), // Administrative privileges
+  isSuperAdmin: z.boolean().default(false), // Super admin privileges for multi-tenant management
   isActive: z.boolean().default(true), // Account status (enabled/disabled)
   lastLogin: z.date().optional(), // Track user activity
   createdAt: z.date().default(() => new Date()),
