@@ -36,9 +36,19 @@ export default function AdminPage() {
     <div className="container mx-auto py-4 px-4 sm:py-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
-        <Button asChild variant="outline" size="sm" className="sm:size-default self-start">
-          <Link to="/">← Back to Home</Link>
-        </Button>
+        <div className="flex gap-2 self-start">
+          {user?.isSuperAdmin && (
+            <Button asChild size="sm" className="sm:size-default">
+              <Link to="/multi-tenant">
+                <Building className="h-4 w-4 mr-2" />
+                Multi-Tenant Management
+              </Link>
+            </Button>
+          )}
+          <Button asChild variant="outline" size="sm" className="sm:size-default">
+            <Link to="/">← Back to Home</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Overview */}
