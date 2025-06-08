@@ -58,11 +58,11 @@ export default function MultiTenantDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  const { data: tenants = [], isLoading } = useQuery({
+  const { data: tenants = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/super-admin/tenants"],
   });
 
-  const { data: systemStats } = useQuery({
+  const { data: systemStats } = useQuery<{totalUsers: number, totalClients: number}>({
     queryKey: ["/api/super-admin/stats"],
   });
 

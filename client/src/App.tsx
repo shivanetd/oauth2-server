@@ -39,6 +39,9 @@ function Router() {
       <Route path="/admin/enterprise">
         <ProtectedRoute path="/admin/enterprise" component={EnterpriseDashboard} />
       </Route>
+      <Route path="/multi-tenant">
+        <ProtectedRoute path="/multi-tenant" component={MultiTenantDashboard} />
+      </Route>
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

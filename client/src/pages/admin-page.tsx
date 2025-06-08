@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import type { User, Client } from "@shared/schema";
 import { useLocation, Link } from "wouter";
-import { Loader2, Users, KeyRound, ShieldAlert, Eye, TrendingUp } from "lucide-react";
+import { Loader2, Users, KeyRound, ShieldAlert, Eye, TrendingUp, Building } from "lucide-react";
 
 export default function AdminPage() {
   const { user } = useAuth();
