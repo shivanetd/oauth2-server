@@ -3,6 +3,7 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import crypto from "crypto";
 import { 
+  Tenant, InsertTenant,
   User, InsertUser, 
   Client, InsertClient, 
   AuthCode, InsertAuthCode,
